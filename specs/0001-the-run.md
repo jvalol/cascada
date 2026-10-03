@@ -107,15 +107,22 @@ close.
 **The push**, at six tenths:
 
 ```text
-0.10, 0.20   nothing moves
-0.35 to 2.0  all twenty
-5.00         one
+0.8          nothing moves
+1.0 to 100   all twenty
+200          two
 ```
 
-The top end is the thing worth having asked about. Shoved hard enough the first
-one leaves over the top of the second rather than into it and nothing else
-moves, which looks exactly like a push that was too soft. It is set at half, in
-the middle of what works.
+The top end was the thing worth having asked about, and the answer turned out to
+be a bug rather than a domino. This read "shoved hard enough the first one
+leaves over the top of the second and nothing else moves", measured at five
+times what was needed. It was the engine: a sleeping body was a wall to the
+solver for the step it was run into, so the first domino sailed over a second
+that could not be moved, and the second woke up afterwards with nothing. Spec
+0036 of blitzkit wakes what a moving body is touching before the passes now, and
+a hard shove carries like any other until ninety times what is needed.
+
+The numbers also moved when a unit here became five centimetres rather than a
+metre, since a push is a speed.
 
 **The cost**, against a budget of 8.33 milliseconds a frame:
 
@@ -151,7 +158,6 @@ it wrong.
 - One too far apart does not. — `run::tests::too_far_apart_falls_short`
 - The count is of those that fell, not those that were laid. — `run::tests::the_count_is_what_fell`
 - Nothing falls until it is pushed. — `run::tests::nothing_falls_on_its_own`
-- A push too hard goes over the next one rather than into it. — `run::tests::a_push_too_hard_goes_over_the_next`
 - The gap is said in dominoes, and it is the plain distance. — `run::tests::the_gap_is_said_in_dominoes`
 - A domino stands thin way along the run. — `domino::tests::it_stands_thin_way_along_the_run`
 

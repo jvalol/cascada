@@ -18,17 +18,19 @@ pub const SUPPLY: usize = 180;
 /// Measured, a run of twenty at six tenths of their height:
 ///
 /// ```text
-/// 0.5            nothing moves
-/// 1.0 to 8.0     all twenty go over
-/// 16.0           one goes over
-/// 22.0           all twenty again
-/// 30.0           one
+/// 0.8            nothing moves
+/// 1.0 to 100     all twenty go over
+/// 200            two
 /// ```
 ///
-/// The top end is the thing spec 0001 wondered about and it is real: shoved
-/// hard enough the first one leaves over the top of the second rather than into
-/// it. It is not a single edge, because a hard enough shove lands the first one
-/// on the third instead and that carries, which is what 22 is.
+/// Spec 0001 wondered whether a shove hard enough throws the first one over the
+/// top of the second rather than into it, and this said yes: past about four
+/// times what was needed, one went over and nothing else moved. That was the
+/// engine rather than the dominoes. A sleeping body was a wall to the solver
+/// for the step it was run into, so the first one sailed over a second that
+/// could not be moved. Blitzkit wakes what a moving body is touching before the
+/// passes now, and a hard shove carries like any other until 200, which is
+/// ninety times what is needed.
 pub const PUSH: f32 = 0.5 * QUICKER;
 pub const PUSHED_AT: f32 = 0.8;
 
@@ -984,27 +986,6 @@ mod tests {
         assert!(
             run.fallen() < 4,
             "{} went over at a spacing further than they are tall",
-            run.fallen()
-        );
-    }
-
-    /// Spec 0001 asked whether a push that is too hard throws the first one
-    /// over the second rather than into it. It does: past about four times
-    /// what is needed, the first one leaves and nothing else moves.
-    #[test]
-    fn a_push_too_hard_goes_over_the_next() {
-        let mut run = run_of(20, 0.6);
-
-        let first = run.dominoes[0];
-        let way = (run.dominoes[1].position - first.position).normalize_or_zero();
-        let at = first.position + Vec3::Y * HALF.y * PUSHED_AT - way * HALF.x;
-        run.dominoes[0].strike(way * 16.0, at);
-        run.phase = Phase::Falling;
-        until_settled(&mut run, 3600);
-
-        assert!(
-            run.fallen() < 4,
-            "{} went over, so a shove of seven times is not too hard",
             run.fallen()
         );
     }
