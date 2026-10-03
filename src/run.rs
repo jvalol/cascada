@@ -31,18 +31,20 @@ pub const PUSHED_AT: f32 = 0.8;
 
 /// How long everything has to be still before a run is over, and how still.
 ///
-/// Its own measure because the engine's sleeping never fires on a figure this
-/// size at all. Forty seconds after the push, with nothing moving faster than
-/// 0.02 or spinning faster than 0.05, both well inside what it counts as still,
-/// 82 of the 92 are still awake.
+/// Its own measure, which it needed and now barely does.
 ///
-/// Sleeping there is a property of a whole group of touching bodies, and the
-/// group's clock is written back over each body's own: one of them ticking over
-/// the threshold for an instant sets every body in the group back to nothing. A
-/// fallen figure is one connected group of ninety, so something is always
-/// stirring somewhere and the clock never reaches half a second. Cairn's tower
-/// of forty sleeps in a second and a half, where the bodies really are still
-/// all at once.
+/// Sleeping in the engine is a property of a whole group of touching bodies:
+/// nothing sleeps while anything it touches is moving, so a fallen figure is one
+/// connected group of ninety and the group's clock restarts whenever any one of
+/// them stirs over the threshold. At blitzkit's old eight solver passes 75 of
+/// the 92 went on stirring long after the figure had stopped, the clock never
+/// reached half a second, and it never slept at all.
+///
+/// That was the solver rather than the bookkeeping, and blitzkit's passes are
+/// thirty two now. None of them stir, and it sleeps at 20.2 seconds, against the
+/// 20.5 this measure calls it over at. So this is near enough redundant, and it
+/// is kept because it does not depend on what the engine's defaults happen to
+/// be.
 pub const RESTS_FOR: f32 = 0.8;
 pub const RESTS_UNDER: f32 = 0.1;
 

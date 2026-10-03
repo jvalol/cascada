@@ -162,29 +162,28 @@ Ninety two dominoes laid out of a hundred and thirty, all of them go over from
 one push, and it takes twenty seconds to come to rest, nearly all of it the wave
 still running.
 
-**A run ends by its own measure of stillness, because the engine's sleeping
-never fires on a figure this size at all.** The figure stops moving at 19.6
-seconds and the run calls it over at 20.5. Forty seconds after the push, with
-nothing moving faster than 0.02 or spinning faster than 0.05, both well inside
-what the engine counts as still, 82 of the 92 are still awake.
+**A run ends by its own measure of stillness, which it needed and now barely
+does.** The figure stops moving at 19.6 seconds and the run calls it over at
+20.5.
 
-Sleeping there is a property of a whole group of touching bodies, and the
-group's clock is written back over each body's own: one of them ticking over the
-threshold for an instant sets every body in the group back to nothing. A fallen
-figure is one connected group of ninety, so something is always stirring
-somewhere and the clock never reaches half a second. Cairn's tower of forty
-sleeps in a second and a half, where the bodies really are still all at once.
+Sleeping in the engine is a property of a whole group of touching bodies:
+nothing sleeps while anything it touches is moving, so a fallen figure is one
+connected group of ninety and the group's clock restarts whenever any one of them
+stirs over the threshold. At blitzkit's old eight solver passes it never slept at
+all. Long after the figure had stopped, 75 of the 92 were still crossing that
+threshold, so the clock never reached half a second and 82 of them were awake at
+forty seconds with nothing moving faster than 0.02.
 
-That is worth separating from a second thing the engine does on heaps, which is
-not this. A deep pile of fifty four boxes genuinely keeps moving for 58 seconds
-at the engine's eight solver passes, and settles in 7 at sixteen. That one is
-about the solver rather than the bookkeeping, and this figure does not hit it: a
-fallen run is a ribbon one layer deep, not a pile.
+That turned out to be the solver and not the bookkeeping, and it was the same
+fault that left a pile of fifty four boxes moving for 58 seconds. Blitzkit's
+passes are thirty two now. None of the 92 stir, and it sleeps at 20.2 seconds,
+three tenths before this measure calls it over. So the measure is near enough
+redundant, and it is kept because it does not depend on what the engine's
+defaults happen to be.
 
 **And what is on screen is how many are moving, not how many are awake.** Awake
-is the engine's word for a body it has not finished with, and on a figure this
-size that number climbs with the wave and then never comes back down. A number
-that never comes back down is not the wave.
+is the engine's word for a body it has not finished with, and a number that
+lingers after the wave has passed is not the wave.
 
 ## Out of scope
 
