@@ -45,6 +45,12 @@ from the near side sends it away and a click from behind sends it back.
 **Clicking the floor still lays one.** A click that meets nothing standing is a
 click on the floor, which is what spec 0001 made it.
 
+**And one just laid is not pushable until the cursor has left it.** Laying a
+domino puts it under the cursor, so with one button and the thing underneath
+deciding, the next click read as a push and there was no obvious way to lay a
+second. Clicking again lays the next one; move off it and back and it is a
+domino like any other.
+
 **At any point in a run.** While laying, while a wave is still running, and after
 everything has stopped. A run that had come to rest and is poked again is
 running again, and what falls afterwards counts with the rest.
@@ -59,22 +65,11 @@ over since the push, laying carries on where it left off.
 **Space still sets the figure off**, unchanged, so the figure keeps a start that
 takes no aim.
 
-**And a click out on its own starts a line of its own.** Spec 0001 stood the
-very first domino square and turned it to face the second when that arrived,
-because the first has nothing to face. That was enough while the floor began
-empty. Since spec 0002 lays a figure first, the player's first click turns to
-face whatever the figure ended on. Being able to push it is what made that
-visible: the domino goes over across the line the player was drawing rather
-than along it.
-
-So the rule is generalised from "the run is empty" to "this one is not
-continuing anything". A click further from the last than any spacing carries is
-the head of a new chain, stood square until its second arrives.
-
-**And the preview under the cursor asks for that rule rather than keeping its
-own.** It had its own copy, which did not learn the rule above when this spec
-added it, so out on bare floor the ghost faced the last thing laid and the
-domino stood square. Both ask `facing` now.
+**Which way a laid domino faces is spec 0005's**, and was briefly this spec's. A
+click out on its own was made the head of a new chain, stood square until its
+second arrived, because being able to push one made it visible that the player's
+first click faced whatever the figure happened to end on. That was still the
+game choosing. The player aims it now.
 
 ## Acceptance criteria
 
@@ -85,8 +80,6 @@ domino stood square. Both ask `facing` now.
 - A click that meets nothing standing lays one instead. — `run::tests::a_click_on_the_floor_still_lays`
 - A run that has come to rest can be set going again. — `run::tests::a_finished_run_can_be_poked`
 - A shove that takes nothing with it leaves the run laying. — `run::tests::a_shove_that_takes_nothing_is_not_a_run`
-- A click out on its own starts a line of its own rather than facing the last thing laid. — `run::tests::they_stand_across_the_line`
-- A domino stands the way the preview under the cursor showed it would. — `run::tests::it_stands_the_way_the_preview_showed`
 - What falls after a second push counts with the rest. — `run::tests::a_later_push_adds_to_the_count`
 
 ### Verified by hand

@@ -23,6 +23,10 @@ use run::{Phase, Run};
 
 const FLOOR: f32 = 30.0;
 
+/// How far an arrow turns the ghost. A twenty fourth of the way round, so a
+/// quarter turn is six presses and the figure's own bends are reachable.
+const TURN: f32 = std::f32::consts::TAU / 24.0;
+
 /// Where a ray meets the floor, which is where a click lays a domino.
 fn on_the_floor(ray: &Ray) -> Option<Vec3> {
     if ray.direction.y > -1e-4 {
@@ -49,6 +53,17 @@ struct Cascada {
     /// Which domino the cursor is over, worked out in `draw` with the camera
     /// and kept so the click and the readout agree with what is lit up.
     over: Option<usize>,
+    /// Which way a domino laid now would face, per spec 0005. A world heading:
+    /// the arrows turn it, and nothing else does. It starts pointing away from
+    /// where the camera opens, which is where a first domino wants to fall.
+    aim: f32,
+    /// The one just laid, while the cursor has not left it yet.
+    ///
+    /// One button, and what is under the cursor decides what it means. Laying
+    /// one puts it under the cursor, so the next click read as a push and there
+    /// was no obvious way to lay a second. A domino is not pushable until the
+    /// cursor has been off it once.
+    just_laid: Option<usize>,
     /// Where the camera is and which way it faces, so the ears follow it.
     ears: Option<(Vec3, Vec3)>,
     /// How much sound is already queued and not yet played, in seconds.
@@ -71,6 +86,8 @@ impl Cascada {
             aimed: None,
             pointing: None,
             over: None,
+            aim: 2.5 + std::f32::consts::PI,
+            just_laid: None,
             ears: None,
             waiting: 0.0,
             camera_angle: 2.5,
@@ -79,6 +96,11 @@ impl Cascada {
             distance: 18.5,
             quitting: false,
         }
+    }
+
+    /// Which way the ghost is pointing.
+    fn aimed_way(&self) -> Vec3 {
+        vec3(self.aim.sin(), 0.0, self.aim.cos())
     }
 }
 
@@ -140,25 +162,17 @@ impl Game for Cascada {
         // What a click would do, said for whatever the cursor is actually over,
         // so the one rule of the hand does not have to be discovered.
         let saying = match (self.over, self.run.phase()) {
-            (Some(_), _) => String::from("click this one to push it over"),
-            (None, Phase::Laying) if self.run.dominoes().len() < 2 => {
-                String::from("click the floor to stand one up")
-            }
-            (None, Phase::Laying) => match self.aimed.and_then(|at| self.run.gap_to(at)) {
-                Some(gap) => format!(
-                    "click to lay one, {:.2} of a domino from the last. space pushes the figure",
-                    gap
-                ),
-                None => String::from(
-                    "click a tile to push it, the floor to lay one. space pushes the figure",
-                ),
-            },
-            (None, Phase::Falling) => String::from("over it goes. space to set it up again"),
+            (Some(_), _) => String::from("Click a tile to push it over."),
+            (None, Phase::Falling) => String::from("Over it goes. Whee!"),
             (None, Phase::Over) => format!(
-                "{} of {} went over. click any that are left, or space to start again",
+                "{} of {} went over. Click to lay another, or press space to start again.",
                 self.run.fallen(),
                 self.run.dominoes().len()
             ),
+            (None, _) if self.run.left() == 0 => {
+                String::from("You have no tiles left. Press space to start again.")
+            }
+            (None, _) => String::from("To lay a new tile, click. Rotate it with the arrow keys."),
         };
 
         text_renderer.reset();
@@ -218,7 +232,7 @@ impl Game for Cascada {
         // where the next one would go, so a run can be aimed before it is laid
         if self.run.phase() == Phase::Laying && self.run.left() > 0 && self.over.is_none() {
             if let Some(at) = self.aimed {
-                let ghost = domino::standing(at, self.run.facing(at));
+                let ghost = domino::standing(at, self.aimed_way());
 
                 scene.push_material(
                     domino_mesh,
@@ -243,7 +257,11 @@ impl Game for Cascada {
         let ray = camera.ray_through(self.cursor);
         self.aimed = on_the_floor(&ray);
         self.pointing = Some(ray);
-        self.over = self.run.under(ray.origin, ray.direction);
+        let under = self.run.under(ray.origin, ray.direction);
+        if under != self.just_laid {
+            self.just_laid = None;
+        }
+        self.over = under.filter(|which| Some(*which) != self.just_laid);
     }
 
     fn process_keyboard(&mut self, input: KeyboardInput) {
@@ -256,6 +274,8 @@ impl Game for Cascada {
                 // size, and nobody should have to sit through the rest of it.
                 Phase::Over | Phase::Falling => self.run = Run::new(),
             },
+            KeyboardKey::Left if held => self.aim += TURN,
+            KeyboardKey::Right if held => self.aim -= TURN,
             KeyboardKey::Escape => self.quitting = held,
             _ => (),
         }
@@ -266,21 +286,20 @@ impl Game for Cascada {
             MouseButton::Right => self.turning = input.is_pressed(),
             // One button, and whatever is under the cursor decides what it
             // means: a domino gets knocked over, bare floor gets a new one.
-            MouseButton::Left if input.is_pressed() => {
-                let under = self
-                    .pointing
-                    .and_then(|ray| self.run.under(ray.origin, ray.direction));
-
-                match (under, self.pointing, self.aimed) {
-                    (Some(which), Some(ray), _) => {
-                        self.run.shove(which, ray.direction);
-                    }
-                    (None, _, Some(at)) => {
-                        self.run.lay(at);
-                    }
-                    _ => (),
+            // The cursor was read in `draw`, where the camera is, so this
+            // agrees with what is lit up and what the readout says.
+            MouseButton::Left if input.is_pressed() => match (self.over, self.pointing) {
+                (Some(which), Some(ray)) => {
+                    self.run.shove(which, ray.direction);
                 }
-            }
+                _ => {
+                    if let Some(at) = self.aimed {
+                        if self.run.lay(at, self.aimed_way()) {
+                            self.just_laid = Some(self.run.dominoes().len() - 1);
+                        }
+                    }
+                }
+            },
             _ => (),
         }
     }

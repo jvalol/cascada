@@ -129,11 +129,6 @@ pub const LOUDEST_KNOCK: f32 = 3.0 * QUICKER;
 /// How many are heard out of any one step.
 pub const AT_ONCE: usize = 3;
 
-/// How far apart two clicks can be and still count as one line being drawn, in
-/// units of a domino's height. Further than anything carries, so a click that
-/// could never be reached from the last one is a chain of its own.
-pub const CONTINUES: f32 = 2.0;
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Phase {
     /// Dominoes may be laid.
@@ -163,9 +158,6 @@ pub struct Run {
     /// Which domino starts each separate piece, and which one it faces, so a
     /// push can set every piece off.
     starts: Vec<(usize, usize)>,
-    /// A domino stood square because it was not continuing anything, waiting
-    /// for the next one of its chain to tell it which way to face.
-    fresh: Option<usize>,
     /// How many had gone over when the last push was made, so a push that took
     /// nothing with it can be told from one that did.
     fell_before: usize,
@@ -206,7 +198,6 @@ impl Run {
             knocks: Vec::new(),
             still: 0.0,
             starts: Vec::new(),
-            fresh: None,
             fell_before: 0,
         }
     }
@@ -266,16 +257,6 @@ impl Run {
             .count()
     }
 
-    /// How far a domino laid here would stand from the last one, in units of
-    /// their own height. Nothing in the game enforces a spacing and this does
-    /// not either: it says what the gap is, and what works is still a thing to
-    /// find out by trying it.
-    pub fn gap_to(&self, at: Vec3) -> Option<f32> {
-        let last = self.dominoes.last()?.position;
-
-        Some(vec3(at.x - last.x, 0.0, at.z - last.z).length() / domino::TALL)
-    }
-
     /// How many are actually moving, which is the wave made visible.
     ///
     /// Not the awake count, which is what this first showed. Awake is the
@@ -296,55 +277,25 @@ impl Run {
         std::mem::take(&mut self.knocks)
     }
 
-    /// Whether a click here continues the line being drawn, or is far enough
-    /// off to be the head of one of its own.
-    pub fn carries_on(&self, at: Vec3) -> bool {
-        match self.dominoes.last() {
-            Some(last) => at.distance(last.position) < domino::TALL * CONTINUES,
-            None => false,
-        }
-    }
-
-    /// Which way one laid here would face.
+    /// Stands one up at a point on the floor, facing the way it is given. Says
+    /// whether it went down.
     ///
-    /// Asked rather than worked out twice. The preview drawn under the cursor
-    /// had its own copy of this and did not learn the rule above when spec 0003
-    /// added it, so a click far from the last domino previewed one way and
-    /// stood up another.
-    pub fn facing(&self, at: Vec3) -> Vec3 {
-        match self.dominoes.last() {
-            Some(last) if self.carries_on(at) => at - last.position,
-            _ => Vec3::X,
-        }
-    }
-
-    /// Stands one up at a point on the floor, across the line from the one
-    /// before it. Says whether it went down.
+    /// The direction is the player's, per spec 0005. Spec 0001 worked it out
+    /// from the domino before and spec 0003 added a rule for a click out on its
+    /// own, and between them a domino's heading was never the player's and one
+    /// already on the floor could be turned by the next one arriving.
     ///
-    /// A click that lands out on its own is not continuing anything, so it
-    /// starts a chain of its own: stood square, and turned to face the second
-    /// of its chain when that arrives. Spec 0001 did that only for the very
-    /// first domino of an empty floor. Since spec 0002 lays a figure first, the
-    /// player's first click would otherwise face whatever the figure ended on.
-    pub fn lay(&mut self, at: Vec3) -> bool {
-        if self.phase != Phase::Laying || self.left() == 0 {
+    /// At any point in a run, also per spec 0005. Spec 0003 made pushing
+    /// something that can be done whenever, and laying had been left where spec
+    /// 0001 put it: before the first push and never again.
+    pub fn lay(&mut self, at: Vec3, way: Vec3) -> bool {
+        if self.left() == 0 {
             return false;
         }
 
-        let carries = self.carries_on(at);
-        let laid = domino::standing(at, self.facing(at));
+        let laid = domino::standing(at, way);
         if self.dominoes.iter().any(|other| overlap(&laid, other)) {
             return false;
-        }
-
-        // the head of a chain stood square, now that it has something to face
-        if carries {
-            if let Some(head) = self.fresh.take() {
-                let from = self.dominoes[head].position;
-                self.dominoes[head] = domino::standing(from, at - from);
-            }
-        } else {
-            self.fresh = Some(self.dominoes.len());
         }
 
         self.dominoes.push(laid);
@@ -560,7 +511,7 @@ mod tests {
         let mut run = Run::bare();
         for n in 0..count {
             assert!(
-                run.lay(vec3(n as f32 * apart, 0.0, 0.0)),
+                run.lay(vec3(n as f32 * apart, 0.0, 0.0), Vec3::X),
                 "it would not lay number {} at {} apart",
                 n,
                 apart
@@ -582,30 +533,6 @@ mod tests {
         }
 
         ticks
-    }
-
-    /// Spec 0001: the gap is reported, in units of a domino's height, and it
-    /// is the plain distance rather than any judgement about it.
-    #[test]
-    fn the_gap_is_said_in_dominoes() {
-        let mut run = Run::bare();
-        assert_eq!(
-            run.gap_to(Vec3::ZERO),
-            None,
-            "there is nothing to measure from"
-        );
-
-        run.lay(Vec3::ZERO);
-        let gap = run
-            .gap_to(vec3(domino::TALL * 0.7, 0.0, 0.0))
-            .expect("one is laid");
-        assert!((gap - 0.7).abs() < 1e-4, "it said {}", gap);
-
-        // and across, not only along
-        let gap = run
-            .gap_to(vec3(0.0, 0.0, domino::TALL * 1.5))
-            .expect("one is laid");
-        assert!((gap - 1.5).abs() < 1e-4, "it said {}", gap);
     }
 
     /// Spec 0002: the figure comes to rest and the run ends, which the
@@ -796,7 +723,7 @@ mod tests {
         let mine = vec3(11.0, 0.0, 0.0);
         let apart = domino::TALL * 0.65;
         for n in 0..3 {
-            assert!(run.lay(mine + vec3(0.0, 0.0, n as f32 * apart)));
+            assert!(run.lay(mine + vec3(0.0, 0.0, n as f32 * apart), Vec3::Z));
         }
         let which = run.dominoes().len() - 3;
         for _ in 0..360 {
@@ -832,7 +759,7 @@ mod tests {
             "it found something standing on bare floor"
         );
 
-        assert!(run.lay(bare));
+        assert!(run.lay(bare, Vec3::X));
         assert_eq!(run.dominoes().len(), was + 1);
     }
 
@@ -844,7 +771,7 @@ mod tests {
             run.step(1.0 / 120.0);
         }
         let standing = vec3(11.0, 0.0, 0.0);
-        assert!(run.lay(standing));
+        assert!(run.lay(standing, Vec3::X));
         let mine = run.dominoes().len() - 1;
 
         run.push();
@@ -873,7 +800,7 @@ mod tests {
         }
         let apart = domino::TALL * 0.65;
         for n in 0..4 {
-            assert!(run.lay(vec3(11.0, 0.0, n as f32 * apart)));
+            assert!(run.lay(vec3(11.0, 0.0, n as f32 * apart), Vec3::Z));
         }
         let mine = run.dominoes().len() - 4;
 
@@ -892,39 +819,73 @@ mod tests {
         );
     }
 
-    /// Spec 0003: a domino stands the way the preview said it would.
-    ///
-    /// The preview had its own copy of the rule and did not learn that a click
-    /// far from the last domino starts a line of its own, so the two disagreed
-    /// exactly where it matters: out on bare floor, away from the figure.
+    /// Spec 0005: a domino is laid at the heading it was given, and nothing
+    /// works it out from anything else.
     #[test]
-    fn it_stands_the_way_the_preview_showed() {
+    fn it_is_laid_facing_where_it_was_aimed() {
         let mut run = Run::new();
 
-        for at in [
-            vec3(11.0, 0.0, 0.0),
-            vec3(-9.0, 0.0, 4.0),
-            vec3(0.0, 0.0, 12.0),
+        for (at, way) in [
+            (vec3(11.0, 0.0, 0.0), Vec3::X),
+            (vec3(-9.0, 0.0, 4.0), Vec3::Z),
+            (vec3(0.0, 0.0, 12.0), vec3(1.0, 0.0, 1.0).normalize()),
         ] {
-            let shown = domino::standing(at, run.facing(at));
-            assert!(run.lay(at), "it would not lay one at {}", at);
-            let stood = run.dominoes().last().expect("one was laid");
+            assert!(run.lay(at, way), "it would not lay one at {}", at);
 
-            assert_eq!(
-                stood.orientation, shown.orientation,
-                "the preview at {} faced {} and it stood {}",
-                at, shown.orientation, stood.orientation
+            let stood = run.dominoes().last().expect("one was laid");
+            let thin = stood.orientation * Vec3::X;
+            assert!(
+                thin.dot(way.normalize()) > 0.999,
+                "aimed {} and it stands {}",
+                way,
+                thin
             );
         }
+    }
 
-        // and the one after it, which does continue the line
-        let along = vec3(0.0, 0.0, 12.0) + vec3(domino::TALL * 0.65, 0.0, 0.0);
-        let shown = domino::standing(along, run.facing(along));
-        assert!(run.lay(along));
+    /// Spec 0005: and laying another never turns it afterwards.
+    #[test]
+    fn laying_one_never_turns_another() {
+        let mut run = Run::bare();
+        assert!(run.lay(Vec3::ZERO, Vec3::X));
+        let was = run.dominoes()[0].orientation;
+
+        // one beside it, pointing somewhere else entirely
+        assert!(run.lay(vec3(0.0, 0.0, domino::TALL * 0.65), Vec3::Z));
         assert_eq!(
-            run.dominoes().last().expect("one was laid").orientation,
-            shown.orientation
+            run.dominoes()[0].orientation,
+            was,
+            "the first one turned when the second arrived"
         );
+
+        // and a third, far off, which spec 0003 would have made a fresh head
+        assert!(run.lay(vec3(9.0, 0.0, 9.0), Vec3::X));
+        assert_eq!(run.dominoes()[0].orientation, was);
+    }
+
+    /// Spec 0005: laying works at any point in a run.
+    #[test]
+    fn laying_works_at_any_point() {
+        let mut run = Run::new();
+        for _ in 0..600 {
+            run.step(1.0 / 120.0);
+        }
+
+        let was = run.dominoes().len();
+        run.push();
+        assert_eq!(run.phase(), Phase::Falling);
+        assert!(
+            run.lay(vec3(12.0, 0.0, 12.0), Vec3::X),
+            "it would not lay one while the wave was running"
+        );
+
+        until_settled(&mut run, 12000);
+        assert_eq!(run.phase(), Phase::Over);
+        assert!(
+            run.lay(vec3(12.0, 0.0, -12.0), Vec3::X),
+            "it would not lay one after everything had stopped"
+        );
+        assert_eq!(run.dominoes().len(), was + 2);
     }
 
     /// Spec 0001: when a run says it is over, it is over.
@@ -1014,7 +975,10 @@ mod tests {
             Phase::Laying,
             "a shove that took nothing with it ended the run"
         );
-        assert!(run.lay(vec3(6.0, 0.0, 0.0)), "it would not lay another");
+        assert!(
+            run.lay(vec3(6.0, 0.0, 0.0), Vec3::X),
+            "it would not lay another"
+        );
     }
 
     /// Spec 0003: and a click takes the one standing across its path with it.
@@ -1064,7 +1028,7 @@ mod tests {
     fn laying_one_spends_it() {
         let mut run = Run::bare();
 
-        assert!(run.lay(Vec3::ZERO));
+        assert!(run.lay(Vec3::ZERO, Vec3::X));
         assert_eq!(run.dominoes().len(), 1);
         assert_eq!(run.left(), SUPPLY - 1);
     }
@@ -1072,12 +1036,15 @@ mod tests {
     #[test]
     fn they_do_not_overlap() {
         let mut run = Run::bare();
-        assert!(run.lay(Vec3::ZERO));
+        assert!(run.lay(Vec3::ZERO, Vec3::X));
 
-        assert!(!run.lay(Vec3::ZERO), "one went inside another");
-        assert!(!run.lay(vec3(0.05, 0.0, 0.0)), "one went inside another");
+        assert!(!run.lay(Vec3::ZERO, Vec3::X), "one went inside another");
         assert!(
-            run.lay(vec3(domino::TALL, 0.0, 0.0)),
+            !run.lay(vec3(0.05, 0.0, 0.0), Vec3::X),
+            "one went inside another"
+        );
+        assert!(
+            run.lay(vec3(domino::TALL, 0.0, 0.0), Vec3::X),
             "a clear one was refused"
         );
     }
@@ -1086,28 +1053,23 @@ mod tests {
     fn an_empty_supply_lays_nothing() {
         let mut run = Run::bare();
         for n in 0..SUPPLY {
-            assert!(run.lay(vec3(n as f32 * domino::TALL, 0.0, 0.0)));
+            assert!(run.lay(vec3(n as f32 * domino::TALL, 0.0, 0.0), Vec3::X));
         }
 
         assert_eq!(run.left(), 0);
         assert!(
-            !run.lay(vec3(1000.0, 0.0, 0.0)),
+            !run.lay(vec3(1000.0, 0.0, 0.0), Vec3::X),
             "it laid one it did not have"
         );
     }
 
-    /// Each stands across the line from the one before, and the first turns to
-    /// face the second when it arrives.
-    ///
-    /// At a spacing that is a line. This used to put them two whole heights
-    /// apart, which spec 0001 had measured as further than anything carries.
-    /// Spec 0003 made that matter: two clicks that far apart are no longer one
-    /// line, so the first has nothing to turn towards.
+    /// Spec 0005: a domino stands thin way along the way it was aimed, which is
+    /// what makes a run a run rather than a wall.
     #[test]
     fn they_stand_across_the_line() {
         let mut run = Run::bare();
-        run.lay(Vec3::ZERO);
-        run.lay(vec3(0.0, 0.0, domino::TALL * 0.65));
+        run.lay(Vec3::ZERO, Vec3::Z);
+        run.lay(vec3(0.0, 0.0, domino::TALL * 0.65), Vec3::Z);
 
         for one in run.dominoes() {
             let thin = one.orientation * Vec3::X;

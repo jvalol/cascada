@@ -29,19 +29,29 @@ It needs nothing new from the engine, which is the other reason to build it.
 go is a decision rather than a habit. The supply is on screen.
 
 **One click, one domino.** It stands at the point on the floor the cursor names,
-turned across the line from the one before it, so a run follows the clicks. The
-first one faces whichever way the second click asks for.
+across the line it is to fall along.
+
+Which way that is was this spec's to work out: turned across the line from the
+one before, with the first one facing whichever way the second click asked for.
+Spec 0005 gives it to the player instead, because a domino already on the floor
+turning itself when the next one arrives is the game moving a thing the player
+put down.
 
 **Spacing is the player's and the physics decides what works.** Too close and a
 falling domino has nowhere to swing before it meets the next, and the chain
 stalls. Too far and it falls short. Nothing in the game enforces a spacing: the
 range that works is a thing to find.
 
-**But the gap is said out loud**, as a fraction of a domino's height, before the
-click that would make it. That is a fact about what the cursor is pointing at
-rather than advice about it, and without it a run that does nothing is a run with
-no way of knowing which end of the range it fell off. Played a few times, the
-range teaches itself.
+This spec also said the gap out loud, as a fraction of a domino's height, before
+the click that would make it: a fact about what the cursor is pointing at rather
+than advice about it. The reasoning was that a run which does nothing otherwise
+gives no way of knowing which end of the range it fell off.
+
+It is gone, because it was unreadable. "It would stand 1.4 tiles from the last
+one" is a unit invented here and handed to a player, and the one thing on screen
+they could not act on without already knowing what the range was. Jake, who
+wrote the game, could not read it either. The range is still a thing to find,
+and finding it is still by trying.
 
 **A domino that will not stand is refused.** One placed inside another cannot be
 put there, and saying so is better than dropping it in and watching the pair
@@ -150,7 +160,7 @@ it wrong.
 - Laying one takes it off the supply. — `run::tests::laying_one_spends_it`
 - A domino may not be laid inside another. — `run::tests::they_do_not_overlap`
 - Nor when the supply is gone. — `run::tests::an_empty_supply_lays_nothing`
-- Each one stands across the line from the one before. — `run::tests::they_stand_across_the_line`
+- Each one stands across the line it will fall along. — `run::tests::they_stand_across_the_line`
 - A laid run settles and goes to sleep. — `run::tests::a_laid_run_sleeps`
 - Pushing the first one wakes the second before it has touched it. — `run::tests::the_waking_runs_ahead`
 - A run at a spacing that works knocks all of them down. — `run::tests::a_good_spacing_carries`
@@ -159,7 +169,6 @@ it wrong.
 - One too far apart does not. — `run::tests::too_far_apart_falls_short`
 - The count is of those that fell, not those that were laid. — `run::tests::the_count_is_what_fell`
 - Nothing falls until it is pushed. — `run::tests::nothing_falls_on_its_own`
-- The gap is said in dominoes, and it is the plain distance. — `run::tests::the_gap_is_said_in_dominoes`
 - A domino stands thin way along the run. — `domino::tests::it_stands_thin_way_along_the_run`
 
 ### Verified by hand
