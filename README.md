@@ -21,3 +21,7 @@ Specs are in [`specs/`](specs/), written before the code.
 ## Licence
 
 MIT or Apache-2.0, at your option.
+
+---
+
+I asked AI to draft this for me. I've edited it. Any surviving AI smells are my oversight.
