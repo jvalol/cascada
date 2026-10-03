@@ -18,15 +18,18 @@ pub const SUPPLY: usize = 180;
 /// Measured, a run of twenty at six tenths of their height:
 ///
 /// ```text
-/// 0.10, 0.20   nothing moves
-/// 0.35 to 2.0  all twenty go over
-/// 5.00         one goes over
+/// 0.5            nothing moves
+/// 1.0 to 8.0     all twenty go over
+/// 16.0           one goes over
+/// 22.0           all twenty again
+/// 30.0           one
 /// ```
 ///
 /// The top end is the thing spec 0001 wondered about and it is real: shoved
-/// hard enough the first one leaves over the top of the second rather than
-/// into it, and nothing else moves. Half is in the middle of what works.
-pub const PUSH: f32 = 0.5;
+/// hard enough the first one leaves over the top of the second rather than into
+/// it. It is not a single edge, because a hard enough shove lands the first one
+/// on the third instead and that carries, which is what 22 is.
+pub const PUSH: f32 = 0.5 * QUICKER;
 pub const PUSHED_AT: f32 = 0.8;
 
 /// How long everything has to be still before a run is over, and how still.
@@ -45,16 +48,40 @@ pub const PUSHED_AT: f32 = 0.8;
 /// 20.5 this measure calls it over at. So this is near enough redundant, and it
 /// is kept because it does not depend on what the engine's defaults happen to
 /// be.
-pub const RESTS_FOR: f32 = 0.8;
-pub const RESTS_UNDER: f32 = 0.1;
+pub const RESTS_FOR: f32 = 0.8 / QUICKER;
+pub const RESTS_UNDER: f32 = 0.1 * QUICKER;
 
-pub const GRAVITY: Vec3 = vec3(0.0, -9.81, 0.0);
+/// How big one of this world's units is, in metres.
+///
+/// A domino here is one unit tall. At the engine's own 9.81 that makes it a
+/// metre tall, and it topples like a metre of concrete: measured, a wave went
+/// down a straight run at two and a half dominoes a second, which is the slow
+/// motion the whole thing read as.
+///
+/// A real domino is about five centimetres, so gravity is what a five
+/// centimetre unit would feel. Time then goes as the square root of that, so
+/// everything here measured as a speed is `QUICKER` times what it was and
+/// everything measured as a duration is that much less. Measured down a
+/// straight run of twenty:
+///
+/// ```text
+/// as it was    0.389s a domino,  2.6 a second
+/// x4           0.195s            5.1
+/// x16          0.102s            9.8
+/// x20          0.089s           10.5
+/// x36          0.070s           14.3
+/// ```
+pub const UNIT: f32 = 0.05;
+pub const GRAVITY: Vec3 = vec3(0.0, -9.81 / UNIT, 0.0);
+/// The square root of one over `UNIT`, which is what every speed here is
+/// multiplied by. Written out because a square root is not a constant.
+pub const QUICKER: f32 = 4.472;
 pub const GROUND: f32 = 30.0;
 
 /// How much speed a domino has to lose in a step to count as having hit
 /// something, and the loss that counts as flat out.
-pub const MIN_KNOCK: f32 = 0.4;
-pub const LOUDEST_KNOCK: f32 = 3.0;
+pub const MIN_KNOCK: f32 = 0.4 * QUICKER;
+pub const LOUDEST_KNOCK: f32 = 3.0 * QUICKER;
 /// How many are heard out of any one step.
 pub const AT_ONCE: usize = 3;
 
@@ -221,6 +248,28 @@ impl Run {
         std::mem::take(&mut self.knocks)
     }
 
+    /// Whether a click here continues the line being drawn, or is far enough
+    /// off to be the head of one of its own.
+    pub fn carries_on(&self, at: Vec3) -> bool {
+        match self.dominoes.last() {
+            Some(last) => at.distance(last.position) < domino::TALL * CONTINUES,
+            None => false,
+        }
+    }
+
+    /// Which way one laid here would face.
+    ///
+    /// Asked rather than worked out twice. The preview drawn under the cursor
+    /// had its own copy of this and did not learn the rule above when spec 0003
+    /// added it, so a click far from the last domino previewed one way and
+    /// stood up another.
+    pub fn facing(&self, at: Vec3) -> Vec3 {
+        match self.dominoes.last() {
+            Some(last) if self.carries_on(at) => at - last.position,
+            _ => Vec3::X,
+        }
+    }
+
     /// Stands one up at a point on the floor, across the line from the one
     /// before it. Says whether it went down.
     ///
@@ -234,17 +283,8 @@ impl Run {
             return false;
         }
 
-        let carries = match self.dominoes.last() {
-            Some(last) => at.distance(last.position) < domino::TALL * CONTINUES,
-            None => false,
-        };
-
-        let way = match self.dominoes.last() {
-            Some(last) if carries => at - last.position,
-            _ => Vec3::X,
-        };
-
-        let laid = domino::standing(at, way);
+        let carries = self.carries_on(at);
+        let laid = domino::standing(at, self.facing(at));
         if self.dominoes.iter().any(|other| overlap(&laid, other)) {
             return false;
         }
@@ -779,6 +819,41 @@ mod tests {
         );
     }
 
+    /// Spec 0003: a domino stands the way the preview said it would.
+    ///
+    /// The preview had its own copy of the rule and did not learn that a click
+    /// far from the last domino starts a line of its own, so the two disagreed
+    /// exactly where it matters: out on bare floor, away from the figure.
+    #[test]
+    fn it_stands_the_way_the_preview_showed() {
+        let mut run = Run::new();
+
+        for at in [
+            vec3(11.0, 0.0, 0.0),
+            vec3(-9.0, 0.0, 4.0),
+            vec3(0.0, 0.0, 12.0),
+        ] {
+            let shown = domino::standing(at, run.facing(at));
+            assert!(run.lay(at), "it would not lay one at {}", at);
+            let stood = run.dominoes().last().expect("one was laid");
+
+            assert_eq!(
+                stood.orientation, shown.orientation,
+                "the preview at {} faced {} and it stood {}",
+                at, shown.orientation, stood.orientation
+            );
+        }
+
+        // and the one after it, which does continue the line
+        let along = vec3(0.0, 0.0, 12.0) + vec3(domino::TALL * 0.65, 0.0, 0.0);
+        let shown = domino::standing(along, run.facing(along));
+        assert!(run.lay(along));
+        assert_eq!(
+            run.dominoes().last().expect("one was laid").orientation,
+            shown.orientation
+        );
+    }
+
     #[test]
     fn a_new_run_is_empty() {
         let run = Run::bare();
@@ -923,13 +998,13 @@ mod tests {
         let first = run.dominoes[0];
         let way = (run.dominoes[1].position - first.position).normalize_or_zero();
         let at = first.position + Vec3::Y * HALF.y * PUSHED_AT - way * HALF.x;
-        run.dominoes[0].strike(way * 5.0, at);
+        run.dominoes[0].strike(way * 16.0, at);
         run.phase = Phase::Falling;
         until_settled(&mut run, 3600);
 
         assert!(
             run.fallen() < 4,
-            "{} went over, so a shove of ten times is not too hard",
+            "{} went over, so a shove of seven times is not too hard",
             run.fallen()
         );
     }

@@ -93,21 +93,37 @@ pub fn colour_of(block: usize) -> f32 {
 
 /// The noise of the contact. A hash rather than a random number, so a knock is
 /// the same knock every time it is asked for.
-fn grit(n: u32) -> f32 {
-    let mut x = n.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+///
+/// Seeded, which it was not. Without a seed the burst is the same few hundred
+/// samples in every knock, and a hundred of those down a run is one click
+/// played a hundred times at slightly different pitches. Wood never makes the
+/// same noise twice.
+fn grit(n: u32, seed: u32) -> f32 {
+    let mut x = n
+        .wrapping_add(seed.wrapping_mul(2_654_435_761))
+        .wrapping_mul(1_664_525)
+        .wrapping_add(1_013_904_223);
     x ^= x >> 15;
     x = x.wrapping_mul(2_246_822_519);
 
     ((x >> 8) & 0xffff) as f32 / 32767.5 - 1.0
 }
 
+/// Which grit a knock is made of, from the domino and how hard it landed.
+///
+/// Both, so the same domino hit twice in a run is not the same noise twice, and
+/// so a knock is still the same knock every time it is asked for.
+pub fn seed_of(block: usize, volume: f32) -> u32 {
+    (block as u32).wrapping_mul(2_246_822_519) ^ (volume * 4096.0) as u32
+}
+
 /// The samples of one knock.
-pub fn samples(volume: f32, colour: f32) -> Vec<f32> {
-    shaped(volume, colour, TIGHTNESS, SCRAPE)
+pub fn samples(volume: f32, colour: f32, seed: u32) -> Vec<f32> {
+    shaped(volume, colour, seed, TIGHTNESS, SCRAPE)
 }
 
 /// The same thing with the shape handed in, so it can be measured.
-fn shaped(volume: f32, colour: f32, tightness: [f32; 3], scrape: f32) -> Vec<f32> {
+fn shaped(volume: f32, colour: f32, seed: u32, tightness: [f32; 3], scrape: f32) -> Vec<f32> {
     let volume = volume.clamp(0.0, 1.0);
     let count = (RATE as f32 * SECONDS) as usize;
 
@@ -126,7 +142,7 @@ fn shaped(volume: f32, colour: f32, tightness: [f32; 3], scrape: f32) -> Vec<f32
     let mut out = Vec::with_capacity(count);
     for n in 0..count {
         let t = n as f32 / RATE as f32;
-        let burst = grit(n as u32) * (-t * BURST_FADE).exp();
+        let burst = grit(n as u32, seed) * (-t * BURST_FADE).exp();
 
         let mut sample = burst * scrape;
         for ring in 0..RINGS.len() {
@@ -147,11 +163,11 @@ fn shaped(volume: f32, colour: f32, tightness: [f32; 3], scrape: f32) -> Vec<f32
 }
 
 /// The sound itself, ready to be played.
-pub fn knock(volume: f32, colour: f32) -> SamplesBuffer {
+pub fn knock(volume: f32, colour: f32, seed: u32) -> SamplesBuffer {
     SamplesBuffer::new(
         ChannelCount::new(1).expect("one channel"),
         SampleRate::new(RATE).expect("the sample rate is not zero"),
-        samples(volume, colour),
+        samples(volume, colour, seed),
     )
 }
 
@@ -230,7 +246,7 @@ mod tests {
         assert_eq!(loudness(1.0), 1.0);
         assert!(loudness(0.3) > loudness(0.1), "it does not rise with force");
 
-        let quietest = loudest(&samples(loudness(0.0), 1.0));
+        let quietest = loudest(&samples(loudness(0.0), 1.0, 0));
         assert!(quietest > 0.3, "the quietest one peaks at {}", quietest);
     }
 
@@ -255,13 +271,13 @@ mod tests {
     /// catches a note and it does not pretend to be a spectrum.
     #[test]
     fn it_is_not_a_note() {
-        let clack = periodic(&samples(1.0, 1.0));
+        let clack = periodic(&samples(1.0, 1.0, 0));
 
         let tone: Vec<f32> = (0..(RATE as f32 * SECONDS) as usize)
             .map(|n| (n as f32 / RATE as f32 * 400.0 * std::f32::consts::TAU).sin())
             .collect();
         let hiss: Vec<f32> = (0..(RATE as f32 * SECONDS) as usize)
-            .map(|n| grit(n as u32))
+            .map(|n| grit(n as u32, 0))
             .collect();
 
         assert!(
@@ -279,7 +295,7 @@ mod tests {
 
     #[test]
     fn it_is_over_quickly() {
-        let samples = samples(1.0, 1.0);
+        let samples = samples(1.0, 1.0, 0);
         assert_eq!(samples.len(), (RATE as f32 * SECONDS) as usize);
 
         let tenth = samples.len() / 10;
@@ -292,7 +308,7 @@ mod tests {
     /// Most of it is at the front. A block landing is a moment, not a swell.
     #[test]
     fn it_is_loudest_at_the_moment_of_contact() {
-        let samples = samples(1.0, 1.0);
+        let samples = samples(1.0, 1.0, 0);
         let energy = |of: &[f32]| of.iter().map(|s| s * s).sum::<f32>();
 
         let fifth = samples.len() / 5;
@@ -304,12 +320,12 @@ mod tests {
 
     #[test]
     fn a_quiet_knock_is_quieter_and_nothing_clips() {
-        assert!(loudest(&samples(0.2, 1.0)) < loudest(&samples(1.0, 1.0)) * 0.5);
-        assert_eq!(loudest(&samples(0.0, 1.0)), 0.0, "silence is silent");
+        assert!(loudest(&samples(0.2, 1.0, 0)) < loudest(&samples(1.0, 1.0, 0)) * 0.5);
+        assert_eq!(loudest(&samples(0.0, 1.0, 0)), 0.0, "silence is silent");
 
         for block in 0..48 {
             assert!(
-                loudest(&samples(1.0, colour_of(block))) <= 1.0,
+                loudest(&samples(1.0, colour_of(block), seed_of(block, 1.0))) <= 1.0,
                 "it clipped"
             );
         }
@@ -318,6 +334,36 @@ mod tests {
     /// And it is the same knock every time, which a random burst would not be.
     #[test]
     fn the_same_knock_twice_is_the_same_knock() {
-        assert_eq!(samples(0.7, 1.05), samples(0.7, 1.05));
+        let seed = seed_of(9, 0.7);
+        assert_eq!(samples(0.7, 1.05, seed), samples(0.7, 1.05, seed));
+    }
+
+    /// Spec 0001: and two knocks are not the same noise.
+    ///
+    /// Without this the burst was the same few hundred samples in every one of
+    /// them, so a run was one click played over and over at slightly different
+    /// pitches. Jake called it robotic.
+    #[test]
+    fn two_knocks_are_different_noises() {
+        let one = samples(0.7, 1.0, seed_of(3, 0.7));
+        let other = samples(0.7, 1.0, seed_of(4, 0.7));
+
+        assert_eq!(one.len(), other.len());
+        let apart: f32 = one
+            .iter()
+            .zip(&other)
+            .map(|(a, b)| (a - b).abs())
+            .sum::<f32>()
+            / one.len() as f32;
+        let loud: f32 = one.iter().map(|a| a.abs()).sum::<f32>() / one.len() as f32;
+        assert!(
+            apart > loud * 0.5,
+            "two knocks differ by {} against a loudness of {}",
+            apart,
+            loud
+        );
+
+        // and the same domino landing harder is not the same noise either
+        assert_ne!(seed_of(3, 0.7), seed_of(3, 0.9));
     }
 }

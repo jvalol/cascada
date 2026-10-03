@@ -46,6 +46,9 @@ struct Cascada {
     aimed: Option<Vec3>,
     /// And the ray it was worked out from, which is what picks a domino out.
     pointing: Option<Ray>,
+    /// Which domino the cursor is over, worked out in `draw` with the camera
+    /// and kept so the click and the readout agree with what is lit up.
+    over: Option<usize>,
     /// Where the camera is and which way it faces, so the ears follow it.
     ears: Option<(Vec3, Vec3)>,
     /// How much sound is already queued and not yet played, in seconds.
@@ -67,6 +70,7 @@ impl Cascada {
             cursor: Vec2::ZERO,
             aimed: None,
             pointing: None,
+            over: None,
             ears: None,
             waiting: 0.0,
             camera_angle: 2.5,
@@ -123,26 +127,35 @@ impl Game for Cascada {
                 // the engine's spatial sound fades with the distance squared
                 let towards = (hit.at - at).normalize_or_zero();
                 sound_system.queue_spatial(
-                    knock::knock(knock::loudness(hit.force), knock::colour_of(hit.which)),
+                    knock::knock(
+                        knock::loudness(hit.force),
+                        knock::colour_of(hit.which),
+                        knock::seed_of(hit.which, hit.force),
+                    ),
                     (at + towards * knock::EARSHOT).to_array(),
                 );
             }
         }
 
-        let saying = match self.run.phase() {
-            Phase::Laying if self.run.dominoes().len() < 2 => {
+        // What a click would do, said for whatever the cursor is actually over,
+        // so the one rule of the hand does not have to be discovered.
+        let saying = match (self.over, self.run.phase()) {
+            (Some(_), _) => String::from("click this one to push it over"),
+            (None, Phase::Laying) if self.run.dominoes().len() < 2 => {
                 String::from("click the floor to stand one up")
             }
-            Phase::Laying => match self.aimed.and_then(|at| self.run.gap_to(at)) {
+            (None, Phase::Laying) => match self.aimed.and_then(|at| self.run.gap_to(at)) {
                 Some(gap) => format!(
-                    "the next would be {:.2} of a domino away. space to push",
+                    "click to lay one, {:.2} of a domino from the last. space pushes the figure",
                     gap
                 ),
-                None => String::from("click to lay more, space to push"),
+                None => String::from(
+                    "click a tile to push it, the floor to lay one. space pushes the figure",
+                ),
             },
-            Phase::Falling => String::from("over it goes. space to set it up again"),
-            Phase::Over => format!(
-                "{} of {} went over. space to start again",
+            (None, Phase::Falling) => String::from("over it goes. space to set it up again"),
+            (None, Phase::Over) => format!(
+                "{} of {} went over. click any that are left, or space to start again",
                 self.run.fallen(),
                 self.run.dominoes().len()
             ),
@@ -203,13 +216,9 @@ impl Game for Cascada {
         }
 
         // where the next one would go, so a run can be aimed before it is laid
-        if self.run.phase() == Phase::Laying && self.run.left() > 0 {
+        if self.run.phase() == Phase::Laying && self.run.left() > 0 && self.over.is_none() {
             if let Some(at) = self.aimed {
-                let way = match self.run.dominoes().last() {
-                    Some(last) => at - last.position,
-                    None => Vec3::X,
-                };
-                let ghost = domino::standing(at, way);
+                let ghost = domino::standing(at, self.run.facing(at));
 
                 scene.push_material(
                     domino_mesh,
@@ -234,6 +243,7 @@ impl Game for Cascada {
         let ray = camera.ray_through(self.cursor);
         self.aimed = on_the_floor(&ray);
         self.pointing = Some(ray);
+        self.over = self.run.under(ray.origin, ray.direction);
     }
 
     fn process_keyboard(&mut self, input: KeyboardInput) {

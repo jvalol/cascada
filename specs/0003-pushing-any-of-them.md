@@ -48,6 +48,11 @@ So the rule is generalised from "the run is empty" to "this one is not
 continuing anything". A click further from the last than any spacing carries is
 the head of a new chain, stood square until its second arrives.
 
+**And the preview under the cursor asks for that rule rather than keeping its
+own.** It had its own copy, which did not learn the rule above when this spec
+added it, so out on bare floor the ghost faced the last thing laid and the
+domino stood square. Both ask `facing` now.
+
 ## Acceptance criteria
 
 - Clicking a standing domino knocks it over. — `run::tests::a_click_pushes_what_it_hits`
@@ -56,6 +61,7 @@ the head of a new chain, stood square until its second arrives.
 - A click that meets nothing standing lays one instead. — `run::tests::a_click_on_the_floor_still_lays`
 - A run that has come to rest can be set going again. — `run::tests::a_finished_run_can_be_poked`
 - A click out on its own starts a line of its own rather than facing the last thing laid. — `run::tests::they_stand_across_the_line`
+- A domino stands the way the preview under the cursor showed it would. — `run::tests::it_stands_the_way_the_preview_showed`
 - What falls after a second push counts with the rest. — `run::tests::a_later_push_adds_to_the_count`
 
 ### Verified by hand

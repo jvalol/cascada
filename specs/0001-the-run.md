@@ -71,6 +71,14 @@ it is also the thing the engine is being shown off for.
 - `Body::strike` and `Body::wake`, per spec 0032 and 0036, for the push.
 - Spatial sound, per spec 0019, and a knock of cairn's shape.
 
+**Every knock is its own noise.** Cairn's shape drives a few damped resonances
+with a burst of noise, and that burst came from a hash of the sample number
+alone, so it was the same few hundred samples in every knock. A hundred of them
+down a run was one click played a hundred times at slightly different pitches,
+which Jake called robotic. The burst is seeded by which domino landed and how
+hard, so a knock is still the same knock every time it is asked for and no two
+of them are the same noise.
+
 ## What it will not have
 
 No undo. No saving a run. No branching the chain by hand, though a run that
@@ -139,6 +147,7 @@ it wrong.
 - A laid run settles and goes to sleep. — `run::tests::a_laid_run_sleeps`
 - Pushing the first one wakes the second before it has touched it. — `run::tests::the_waking_runs_ahead`
 - A run at a spacing that works knocks all of them down. — `run::tests::a_good_spacing_carries`
+- Two knocks are not the same noise. — `knock::tests::two_knocks_are_different_noises`
 - One too far apart does not. — `run::tests::too_far_apart_falls_short`
 - The count is of those that fell, not those that were laid. — `run::tests::the_count_is_what_fell`
 - Nothing falls until it is pushed. — `run::tests::nothing_falls_on_its_own`
