@@ -41,6 +41,8 @@ struct Cascada {
     /// Where on the floor the cursor is pointing, worked out in `draw` where the
     /// camera is.
     aimed: Option<Vec3>,
+    /// And the ray it was worked out from, which is what picks a domino out.
+    pointing: Option<Ray>,
     /// Where the camera is and which way it faces, so the ears follow it.
     ears: Option<(Vec3, Vec3)>,
     /// How much sound is already queued and not yet played, in seconds.
@@ -60,6 +62,7 @@ impl Cascada {
             run: Run::new(),
             cursor: Vec2::ZERO,
             aimed: None,
+            pointing: None,
             ears: None,
             waiting: 0.0,
             camera_angle: 2.5,
@@ -216,7 +219,9 @@ impl Game for Cascada {
             );
         self.ears = Some((camera.position, camera.target - camera.position));
 
-        self.aimed = on_the_floor(&camera.ray_through(self.cursor));
+        let ray = camera.ray_through(self.cursor);
+        self.aimed = on_the_floor(&ray);
+        self.pointing = Some(ray);
     }
 
     fn process_keyboard(&mut self, input: KeyboardInput) {
@@ -237,9 +242,21 @@ impl Game for Cascada {
     fn process_mouse(&mut self, input: MouseInput) {
         match input.button {
             MouseButton::Right => self.turning = input.is_pressed(),
+            // One button, and whatever is under the cursor decides what it
+            // means: a domino gets knocked over, bare floor gets a new one.
             MouseButton::Left if input.is_pressed() => {
-                if let Some(at) = self.aimed {
-                    self.run.lay(at);
+                let under = self
+                    .pointing
+                    .and_then(|ray| self.run.under(ray.origin, ray.direction));
+
+                match (under, self.pointing, self.aimed) {
+                    (Some(which), Some(ray), _) => {
+                        self.run.shove(which, ray.direction);
+                    }
+                    (None, _, Some(at)) => {
+                        self.run.lay(at);
+                    }
+                    _ => (),
                 }
             }
             _ => (),

@@ -3,7 +3,7 @@
 use crate::domino::{self, HALF};
 use blitzkit::collision::{obbs_meet, Aabb, Obb};
 use blitzkit::physics::{Body, Shape, Solver};
-use glam::{vec3, Vec3};
+use glam::{vec3, Quat, Vec3};
 
 /// How many there are to lay, which the pattern spends most of.
 /// How many there are to lay. The figure spends most of them and the rest are
@@ -58,6 +58,11 @@ pub const LOUDEST_KNOCK: f32 = 3.0;
 /// How many are heard out of any one step.
 pub const AT_ONCE: usize = 3;
 
+/// How far apart two clicks can be and still count as one line being drawn, in
+/// units of a domino's height. Further than anything carries, so a click that
+/// could never be reached from the last one is a chain of its own.
+pub const CONTINUES: f32 = 2.0;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Phase {
     /// Dominoes may be laid.
@@ -87,6 +92,9 @@ pub struct Run {
     /// Which domino starts each separate piece, and which one it faces, so a
     /// push can set every piece off.
     starts: Vec<(usize, usize)>,
+    /// A domino stood square because it was not continuing anything, waiting
+    /// for the next one of its chain to tell it which way to face.
+    fresh: Option<usize>,
 }
 
 impl Default for Run {
@@ -124,6 +132,7 @@ impl Run {
             knocks: Vec::new(),
             still: 0.0,
             starts: Vec::new(),
+            fresh: None,
         }
     }
 
@@ -215,16 +224,24 @@ impl Run {
     /// Stands one up at a point on the floor, across the line from the one
     /// before it. Says whether it went down.
     ///
-    /// The first has nothing to face, so it is stood square and turned to face
-    /// the second when that arrives: a run of one has no direction yet.
+    /// A click that lands out on its own is not continuing anything, so it
+    /// starts a chain of its own: stood square, and turned to face the second
+    /// of its chain when that arrives. Spec 0001 did that only for the very
+    /// first domino of an empty floor. Since spec 0002 lays a figure first, the
+    /// player's first click would otherwise face whatever the figure ended on.
     pub fn lay(&mut self, at: Vec3) -> bool {
         if self.phase != Phase::Laying || self.left() == 0 {
             return false;
         }
 
+        let carries = match self.dominoes.last() {
+            Some(last) => at.distance(last.position) < domino::TALL * CONTINUES,
+            None => false,
+        };
+
         let way = match self.dominoes.last() {
-            Some(last) => at - last.position,
-            None => Vec3::X,
+            Some(last) if carries => at - last.position,
+            _ => Vec3::X,
         };
 
         let laid = domino::standing(at, way);
@@ -232,9 +249,14 @@ impl Run {
             return false;
         }
 
-        if self.dominoes.len() == 1 {
-            let first = self.dominoes[0].position;
-            self.dominoes[0] = domino::standing(first, at - first);
+        // the head of a chain stood square, now that it has something to face
+        if carries {
+            if let Some(head) = self.fresh.take() {
+                let from = self.dominoes[head].position;
+                self.dominoes[head] = domino::standing(from, at - from);
+            }
+        } else {
+            self.fresh = Some(self.dominoes.len());
         }
 
         self.dominoes.push(laid);
@@ -264,6 +286,53 @@ impl Run {
 
         self.phase = Phase::Falling;
         self.still = 0.0;
+    }
+
+    /// Which domino a ray meets first, if any. The slab test in each one's own
+    /// frame, which is the only way to pick a thing that is lying at an angle.
+    pub fn under(&self, from: Vec3, way: Vec3) -> Option<usize> {
+        let mut nearest: Option<(usize, f32)> = None;
+
+        for (which, one) in self.dominoes.iter().enumerate() {
+            let Some(far) = hit(from, way, one.position, one.orientation, HALF) else {
+                continue;
+            };
+            if nearest.is_none_or(|(_, best)| far < best) {
+                nearest = Some((which, far));
+            }
+        }
+
+        nearest.map(|(which, _)| which)
+    }
+
+    /// Knocks one over, any of them and at any point in a run. Spec 0003.
+    ///
+    /// Away from whoever asked: a domino goes two ways along its thin axis, so
+    /// the ray is flattened onto the floor and taken against that axis to pick
+    /// the sign.
+    ///
+    /// Struck near the top, with the same shove the figure's own start gets.
+    pub fn shove(&mut self, which: usize, way: Vec3) -> bool {
+        let Some(one) = self.dominoes.get(which) else {
+            return false;
+        };
+
+        let flat = vec3(way.x, 0.0, way.z).normalize_or_zero();
+        let thin = one.orientation * Vec3::X;
+        let thin = vec3(thin.x, 0.0, thin.z).normalize_or_zero();
+        if flat == Vec3::ZERO || thin == Vec3::ZERO {
+            return false;
+        }
+
+        let going = thin * thin.dot(flat).signum();
+        let at = one.position + Vec3::Y * HALF.y * PUSHED_AT - going * HALF.x;
+        self.dominoes[which].strike(going * PUSH, at);
+
+        if self.phase != Phase::Falling {
+            self.phase = Phase::Falling;
+        }
+        self.still = 0.0;
+        true
     }
 
     pub fn step(&mut self, dt: f32) {
@@ -320,6 +389,37 @@ impl Run {
         heard.truncate(AT_ONCE);
         self.knocks.extend(heard);
     }
+}
+
+/// Where a ray first meets a block: the slab test, in the block's own frame.
+///
+/// The same few lines as cairn's, which is two games now and an argument for
+/// the engine owning it.
+fn hit(from: Vec3, way: Vec3, middle: Vec3, turn: Quat, half: Vec3) -> Option<f32> {
+    let back = turn.inverse();
+    let began = back * (from - middle);
+    let along = back * way;
+
+    let mut entry = f32::NEG_INFINITY;
+    let mut exit = f32::INFINITY;
+
+    for n in 0..3 {
+        if along[n].abs() < 1e-6 {
+            if began[n].abs() > half[n] {
+                return None;
+            }
+            continue;
+        }
+
+        let (near, far) = (
+            (-half[n] - began[n]) / along[n],
+            (half[n] - began[n]) / along[n],
+        );
+        entry = entry.max(near.min(far));
+        exit = exit.min(near.max(far));
+    }
+
+    (exit >= entry.max(0.0)).then_some(entry.max(0.0))
 }
 
 /// Whether two dominoes standing in these places would be inside each other.
@@ -518,6 +618,167 @@ mod tests {
     }
 
     /// Scratch: can a wave split in two?
+    /// A ray aimed at a domino from a given way off, level with its top, which
+    /// is roughly where a click from the camera arrives.
+    fn aimed_at(run: &Run, which: usize, from: Vec3) -> (Vec3, Vec3) {
+        let at = run.dominoes()[which].position;
+        let eye = at + from;
+
+        (eye, (at - eye).normalize())
+    }
+
+    /// Spec 0003: clicking a domino knocks it over.
+    #[test]
+    fn a_click_pushes_what_it_hits() {
+        let mut run = Run::new();
+        for _ in 0..360 {
+            run.step(1.0 / 120.0);
+        }
+
+        // one out on the ring, well away from the figure's own start
+        let which = 24;
+        let (eye, way) = aimed_at(&run, which, vec3(4.0, 3.0, 4.0));
+        assert_eq!(run.under(eye, way), Some(which), "the ray missed it");
+        assert!(run.shove(which, way));
+        assert_eq!(run.phase(), Phase::Falling);
+
+        until_settled(&mut run, 9000);
+        assert!(
+            domino::has_fallen(&run.dominoes()[which]),
+            "it was pushed and stayed up"
+        );
+    }
+
+    /// Spec 0003: and it goes away from whoever pushed it.
+    #[test]
+    fn it_falls_away_from_the_click() {
+        for from in [vec3(4.0, 3.0, 4.0), vec3(-4.0, 3.0, -4.0)] {
+            let mut run = Run::new();
+            for _ in 0..360 {
+                run.step(1.0 / 120.0);
+            }
+
+            let which = 24;
+            let stood = run.dominoes()[which].position;
+            let (_, way) = aimed_at(&run, which, from);
+            assert!(run.shove(which, way));
+            until_settled(&mut run, 9000);
+
+            let went = run.dominoes()[which].position - stood;
+            let pushed = vec3(way.x, 0.0, way.z).normalize();
+            assert!(
+                vec3(went.x, 0.0, went.z).normalize_or_zero().dot(pushed) > 0.0,
+                "pushed {} and it went {}",
+                pushed,
+                went
+            );
+        }
+    }
+
+    /// Spec 0003: one the player laid is pushed like any other.
+    #[test]
+    fn one_the_player_laid_can_be_pushed() {
+        let mut run = Run::new();
+        // off on its own, clear of the figure
+        let mine = vec3(11.0, 0.0, 0.0);
+        let apart = domino::TALL * 0.65;
+        for n in 0..3 {
+            assert!(run.lay(mine + vec3(0.0, 0.0, n as f32 * apart)));
+        }
+        let which = run.dominoes().len() - 3;
+        for _ in 0..360 {
+            run.step(1.0 / 120.0);
+        }
+
+        let (eye, way) = aimed_at(&run, which, vec3(0.0, 3.0, -4.0));
+        assert_eq!(run.under(eye, way), Some(which));
+        assert!(run.shove(which, way));
+        until_settled(&mut run, 9000);
+
+        assert!(
+            domino::has_fallen(&run.dominoes()[which]),
+            "the one the player laid stayed up"
+        );
+        assert!(
+            domino::has_fallen(&run.dominoes()[which + 1]),
+            "and it did not take the next one with it"
+        );
+    }
+
+    /// Spec 0003: a ray that meets nothing standing is a click on the floor.
+    #[test]
+    fn a_click_on_the_floor_still_lays() {
+        let mut run = Run::new();
+        let was = run.dominoes().len();
+
+        let bare = vec3(12.0, 0.0, 12.0);
+        let eye = bare + vec3(0.0, 8.0, 0.0);
+        assert_eq!(
+            run.under(eye, (bare - eye).normalize()),
+            None,
+            "it found something standing on bare floor"
+        );
+
+        assert!(run.lay(bare));
+        assert_eq!(run.dominoes().len(), was + 1);
+    }
+
+    /// Spec 0003: and a run that has come to rest can be set going again.
+    #[test]
+    fn a_finished_run_can_be_poked() {
+        let mut run = Run::new();
+        for _ in 0..360 {
+            run.step(1.0 / 120.0);
+        }
+        let standing = vec3(11.0, 0.0, 0.0);
+        assert!(run.lay(standing));
+        let mine = run.dominoes().len() - 1;
+
+        run.push();
+        until_settled(&mut run, 12000);
+        assert_eq!(run.phase(), Phase::Over);
+        assert!(
+            !domino::has_fallen(&run.dominoes()[mine]),
+            "it fell on its own"
+        );
+
+        let (_, way) = aimed_at(&run, mine, vec3(0.0, 3.0, -4.0));
+        assert!(run.shove(mine, way));
+        assert_eq!(run.phase(), Phase::Falling, "it would not start again");
+
+        until_settled(&mut run, 9000);
+        assert_eq!(run.phase(), Phase::Over);
+        assert!(domino::has_fallen(&run.dominoes()[mine]));
+    }
+
+    /// Spec 0003: and what goes over afterwards counts with the rest.
+    #[test]
+    fn a_later_push_adds_to_the_count() {
+        let mut run = Run::new();
+        for _ in 0..360 {
+            run.step(1.0 / 120.0);
+        }
+        let apart = domino::TALL * 0.65;
+        for n in 0..4 {
+            assert!(run.lay(vec3(11.0, 0.0, n as f32 * apart)));
+        }
+        let mine = run.dominoes().len() - 4;
+
+        run.push();
+        until_settled(&mut run, 12000);
+        let figure = run.fallen();
+
+        let (_, way) = aimed_at(&run, mine, vec3(0.0, 3.0, -4.0));
+        assert!(run.shove(mine, way));
+        until_settled(&mut run, 9000);
+
+        assert_eq!(
+            run.fallen(),
+            figure + 4,
+            "the four laid aside did not join the count"
+        );
+    }
+
     #[test]
     fn a_new_run_is_empty() {
         let run = Run::bare();
@@ -566,11 +827,17 @@ mod tests {
 
     /// Each stands across the line from the one before, and the first turns to
     /// face the second when it arrives.
+    ///
+    /// At a spacing that is a line. This used to put them two whole heights
+    /// apart, which spec 0001 had already measured as further than anything
+    /// carries, and spec 0003 made that distinction matter: two clicks that far
+    /// apart are no longer one line being drawn, so the first has nothing to
+    /// turn towards.
     #[test]
     fn they_stand_across_the_line() {
         let mut run = Run::bare();
         run.lay(Vec3::ZERO);
-        run.lay(vec3(0.0, 0.0, 2.0));
+        run.lay(vec3(0.0, 0.0, domino::TALL * 0.65));
 
         for one in run.dominoes() {
             let thin = one.orientation * Vec3::X;

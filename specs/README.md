@@ -10,3 +10,4 @@ not a priority, and it never changes once a spec exists.
 | --- | --- |
 | [0001](0001-the-run.md) | Laying dominoes, pushing the first, and counting what fell |
 | [0002](0002-what-is-already-standing.md) | A yin and yang already laid when a run begins |
+| [0003](0003-pushing-any-of-them.md) | Clicking any domino to knock it over, at any point in a run |
