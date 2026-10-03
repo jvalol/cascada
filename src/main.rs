@@ -113,13 +113,13 @@ impl Game for Cascada {
         text_renderer.reset();
         for (line, text) in vec![
             format!(
-                "[COPY - Jake] {} standing, {} fallen, {} awake",
+                "{} standing, {} fallen, {} awake",
                 self.dominoes.len() - fallen,
                 fallen,
                 awake
             ),
-            String::from("[COPY - Jake] laying them and pushing them over is spec 0001"),
-            String::from("[COPY - Jake] right-drag turns and tilts, scroll zooms"),
+            String::from("laying them and pushing them over is spec 0001"),
+            String::from("right-drag turns and tilts, scroll zooms"),
         ]
         .into_iter()
         .enumerate()
