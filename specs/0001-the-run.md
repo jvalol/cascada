@@ -1,6 +1,6 @@
 # 0001 The run
 
-**Status:** draft
+**Status:** implemented
 **Date:** 2026-10-02
 
 ## Goal
@@ -35,8 +35,13 @@ first one faces whichever way the second click asks for.
 **Spacing is the player's and the physics decides what works.** Too close and a
 falling domino has nowhere to swing before it meets the next, and the chain
 stalls. Too far and it falls short. Nothing in the game enforces a spacing: the
-range that works is a thing to find, and the numbers it works over are measured
-and written down rather than chosen.
+range that works is a thing to find.
+
+**But the gap is said out loud**, as a fraction of a domino's height, before the
+click that would make it. That is a fact about what the cursor is pointing at
+rather than advice about it, and without it a run that does nothing is a run with
+no way of knowing which end of the range it fell off. Played a few times, the
+range teaches itself.
 
 **A domino that will not stand is refused.** One placed inside another cannot be
 put there, and saying so is better than dropping it in and watching the pair
@@ -72,18 +77,57 @@ No undo. No saving a run. No branching the chain by hand, though a run that
 crosses itself will do what it does. No dominoes of different sizes. No table
 edge to fall off that is not the floor's own.
 
-## The numbers are measured, not reasoned
+## The numbers, measured
 
-The three that matter are all the physics', not mine, and none of them is settled
-until it has been run:
+Twenty dominoes in a line, pushed, and how many went over.
 
-- How far apart two dominoes may stand and still knock each other over. There is
-  a near end where the fall jams and a far end where it falls short.
-- How hard the first one has to be pushed, and whether a push that is too hard
-  throws it over the second rather than into it.
-- Whether a hundred of them standing is still the quiet nothing spec 0036
-  promised, or whether a hundred bodies in one line is where that stops being
-  true.
+**Spacing**, as a fraction of their own height:
+
+```text
+0.25, 0.35, 0.50   none of them. the fall jams: there is nowhere to swing
+0.60, 0.70         all twenty
+0.80               eighteen
+0.90               seventeen
+1.00 and past      one, which is the one that was pushed
+```
+
+So it carries from about six tenths to nine tenths of their height, and all
+twenty only in the lower half of that. Both ends the spec guessed at are real
+and the near one is sharper than expected: half their height is already too
+close.
+
+**The push**, at six tenths:
+
+```text
+0.10, 0.20   nothing moves
+0.35 to 2.0  all twenty
+5.00         one
+```
+
+The top end is the thing worth having asked about. Shoved hard enough the first
+one leaves over the top of the second rather than into it and nothing else
+moves, which looks exactly like a push that was too soft. It is set at half, in
+the middle of what works.
+
+**The cost**, against a budget of 8.33 milliseconds a frame:
+
+```text
+20 standing    0.01 ms a step
+60 standing    0.06 ms
+100 standing   0.06 ms
+```
+
+Which answers the third question: a hundred bodies with no broad phase and 4,950
+pairs to test is nothing at all, because they are asleep. Spec 0036 earns its
+keep here more plainly than it does in cairn.
+
+## The numbers were measured, not reasoned
+
+The three that mattered were all the physics', not mine, and all three are above.
+The one the spec did not think to ask is that a domino stands with its thin way
+along the run and its wide way across it: turned the other way it topples
+sideways out of its own line, and the scaffolding this repo was born with had it
+wrong.
 
 ## Acceptance criteria
 
@@ -98,6 +142,9 @@ until it has been run:
 - One too far apart does not. — `run::tests::too_far_apart_falls_short`
 - The count is of those that fell, not those that were laid. — `run::tests::the_count_is_what_fell`
 - Nothing falls until it is pushed. — `run::tests::nothing_falls_on_its_own`
+- A push too hard goes over the next one rather than into it. — `run::tests::a_push_too_hard_goes_over_the_next`
+- The gap is said in dominoes, and it is the plain distance. — `run::tests::the_gap_is_said_in_dominoes`
+- A domino stands thin way along the run. — `domino::tests::it_stands_thin_way_along_the_run`
 
 ### Verified by hand
 

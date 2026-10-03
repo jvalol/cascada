@@ -23,7 +23,11 @@ pub fn standing(at: Vec3, way: Vec3) -> Body {
     let facing = if flat.length_squared() < 1e-6 {
         Quat::IDENTITY
     } else {
-        Quat::from_rotation_y(flat.x.atan2(flat.z))
+        // Its thin way along the run, not its wide way. A domino in a line
+        // shows its broad faces to the ones in front of and behind it, and
+        // falls about the edge it stands on, which is across the run. Turned
+        // the other way it would topple sideways out of its own line.
+        Quat::from_rotation_y((-flat.z).atan2(flat.x))
     };
 
     Body::block(vec3(at.x, HALF.y, at.z), HALF, 1.0)
@@ -49,13 +53,26 @@ mod tests {
         assert!(!has_fallen(&it), "it was laid down flat");
     }
 
+    /// Its thin way runs along the line and its wide way across it, which is
+    /// what makes a line of them a line of dominoes rather than a wall.
     #[test]
-    fn it_faces_the_way_it_is_sent() {
-        let along_x = standing(Vec3::ZERO, Vec3::X);
-        let faces = along_x.orientation * Vec3::Z;
+    fn it_stands_thin_way_along_the_run() {
+        for way in [Vec3::X, Vec3::Z, vec3(1.0, 0.0, 1.0), vec3(-2.0, 0.0, 0.7)] {
+            let it = standing(Vec3::ZERO, way);
+            let flat = vec3(way.x, 0.0, way.z).normalize();
 
-        // its face looks along the run, so the run's direction comes back out
-        assert!(faces.dot(Vec3::X).abs() > 0.99, "it faces {}", faces);
+            let thin = it.orientation * Vec3::X;
+            let wide = it.orientation * Vec3::Z;
+
+            assert!(
+                thin.dot(flat) > 0.99,
+                "its thin way points {} and the run goes {}",
+                thin,
+                flat
+            );
+            assert!(wide.dot(flat).abs() < 0.01, "its wide way is along the run");
+            assert!(wide.y.abs() < 0.01, "it is leaning");
+        }
     }
 
     /// Read off a body rather than off the constants, which clippy is right to

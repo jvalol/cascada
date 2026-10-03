@@ -1,52 +1,49 @@
 //! cascada: dominoes on a floor. See `specs/`.
-//!
-//! This is the scaffolding the repo was born with: a line of them standing,
-//! settled and asleep, and a camera to walk round it with. Laying them and
-//! pushing them over is spec 0001 and is not built yet.
 
 mod domino;
+mod knock;
+mod run;
 
 use blitzkit::camera::Camera;
-use blitzkit::collision::Aabb;
+use blitzkit::collision::Ray;
 use blitzkit::geometry::Geometry;
 use blitzkit::keyboard::{KeyboardInput, KeyboardKey, KeyboardKeyState};
 use blitzkit::mesh::{MeshData, Transform};
 use blitzkit::mouse::{MouseButton, MouseInput};
-use blitzkit::physics::{Body, Shape, Solver};
+use blitzkit::physics::Shape;
 use blitzkit::renderer::render_text::{RenderText, TextRenderer};
 use blitzkit::renderer::scene::{MeshId, Scene};
 use blitzkit::renderer::Renderer;
 use blitzkit::sound::SoundSystem;
 use blitzkit::{start, Game};
 use glam::{vec2, vec3, vec4, Vec2, Vec3};
+use run::{Phase, Run};
 
 const FLOOR: f32 = 30.0;
-const GRAVITY: f32 = -9.81;
 
-/// What the scaffolding stands up: a short line, at a spacing that looks like
-/// one. What actually works is spec 0001's to measure.
-const SHOWN: usize = 14;
-const APART: f32 = domino::TALL * 0.6;
+/// Where a ray meets the floor, which is where a click lays a domino.
+fn on_the_floor(ray: &Ray) -> Option<Vec3> {
+    if ray.direction.y > -1e-4 {
+        return None;
+    }
 
-fn laid() -> Vec<Body> {
-    (0..SHOWN)
-        .map(|n| {
-            let along = (n as f32 - (SHOWN as f32 - 1.0) * 0.5) * APART;
+    let at = ray.at(-ray.origin.y / ray.direction.y);
 
-            domino::standing(vec3(along, 0.0, 0.0), Vec3::X)
-        })
-        .collect()
+    (at.x.abs() < FLOOR * 0.5 && at.z.abs() < FLOOR * 0.5).then_some(at)
 }
 
 struct Cascada {
     domino_mesh: Option<MeshId>,
     floor_mesh: Option<MeshId>,
-    dominoes: Vec<Body>,
-    ground: Vec<Aabb>,
-    /// Kept across frames. A line of dominoes standing still should cost
-    /// nothing, and that is what blitzkit's sleeping is for; the free `step`
-    /// sleeps nothing.
-    solver: Solver,
+    run: Run,
+    cursor: Vec2,
+    /// Where on the floor the cursor is pointing, worked out in `draw` where the
+    /// camera is.
+    aimed: Option<Vec3>,
+    /// Where the camera is and which way it faces, so the ears follow it.
+    ears: Option<(Vec3, Vec3)>,
+    /// How much sound is already queued and not yet played, in seconds.
+    waiting: f32,
     camera_angle: f32,
     camera_up: f32,
     turning: bool,
@@ -59,16 +56,15 @@ impl Cascada {
         Self {
             domino_mesh: None,
             floor_mesh: None,
-            dominoes: laid(),
-            ground: vec![Aabb::from_center_size(
-                vec3(0.0, -1.0, 0.0),
-                vec3(FLOOR, 2.0, FLOOR),
-            )],
-            solver: Solver::new(),
+            run: Run::new(),
+            cursor: Vec2::ZERO,
+            aimed: None,
+            ears: None,
+            waiting: 0.0,
             camera_angle: 2.5,
-            camera_up: 0.45,
+            camera_up: 0.55,
             turning: false,
-            distance: 9.0,
+            distance: 14.0,
             quitting: false,
         }
     }
@@ -94,31 +90,61 @@ impl Game for Cascada {
         dt: f32,
         _geometry: &mut Geometry,
         text_renderer: &mut TextRenderer,
-        _sound_system: &SoundSystem,
+        sound_system: &SoundSystem,
     ) {
-        self.solver.step(
-            &mut self.dominoes,
-            &self.ground,
-            vec3(0.0, GRAVITY, 0.0),
-            dt,
-        );
+        self.run.step(dt);
+        self.waiting = (self.waiting - dt).max(0.0);
 
-        let awake = self.dominoes.iter().filter(|one| !one.asleep).count();
-        let fallen = self
-            .dominoes
-            .iter()
-            .filter(|one| domino::has_fallen(one))
-            .count();
+        if let Some((at, facing)) = self.ears {
+            sound_system.set_listener(at, facing, Vec3::Y);
+
+            for hit in self.run.knocks() {
+                // The engine plays what it is given one sound after another, so
+                // a run going over handed across whole is still being heard once
+                // everything has stopped.
+                if !knock::room_for_another(self.waiting) {
+                    break;
+                }
+                self.waiting += knock::SECONDS;
+
+                // a stride from the ears rather than where it happened, since
+                // the engine's spatial sound fades with the distance squared
+                let towards = (hit.at - at).normalize_or_zero();
+                sound_system.queue_spatial(
+                    knock::knock(knock::loudness(hit.force), knock::colour_of(hit.which)),
+                    (at + towards * knock::EARSHOT).to_array(),
+                );
+            }
+        }
+
+        let saying = match self.run.phase() {
+            Phase::Laying if self.run.dominoes().len() < 2 => {
+                String::from("click the floor to stand one up")
+            }
+            Phase::Laying => match self.aimed.and_then(|at| self.run.gap_to(at)) {
+                Some(gap) => format!(
+                    "the next would be {:.2} of a domino away. space to push",
+                    gap
+                ),
+                None => String::from("click to lay more, space to push"),
+            },
+            Phase::Falling => String::from("over it goes"),
+            Phase::Over => format!(
+                "{} of {} went over. space to start again",
+                self.run.fallen(),
+                self.run.dominoes().len()
+            ),
+        };
 
         text_renderer.reset();
         for (line, text) in vec![
             format!(
-                "{} standing, {} fallen, {} awake",
-                self.dominoes.len() - fallen,
-                fallen,
-                awake
+                "{} laid, {} left, {} awake",
+                self.run.dominoes().len(),
+                self.run.left(),
+                self.run.awake()
             ),
-            String::from("laying them and pushing them over is spec 0001"),
+            saying,
             String::from("right-drag turns and tilts, scroll zooms"),
         ]
         .into_iter()
@@ -145,7 +171,7 @@ impl Game for Cascada {
             vec4(0.16, 0.17, 0.20, 1.0),
         );
 
-        for body in self.dominoes.iter() {
+        for body in self.run.dominoes().iter() {
             let Shape::Block { half } = body.shape else {
                 continue;
             };
@@ -160,6 +186,26 @@ impl Game for Cascada {
             );
         }
 
+        // where the next one would go, so a run can be aimed before it is laid
+        if self.run.phase() == Phase::Laying && self.run.left() > 0 {
+            if let Some(at) = self.aimed {
+                let way = match self.run.dominoes().last() {
+                    Some(last) => at - last.position,
+                    None => Vec3::X,
+                };
+                let ghost = domino::standing(at, way);
+
+                scene.push_material(
+                    domino_mesh,
+                    &Transform::at(ghost.position)
+                        .with_rotation(ghost.orientation)
+                        .with_scale(domino::HALF * 2.0),
+                    vec4(0.5, 0.62, 0.45, 0.45),
+                    16.0,
+                );
+            }
+        }
+
         camera.target = vec3(0.0, domino::TALL, 0.0);
         camera.position = camera.target
             + vec3(
@@ -167,35 +213,49 @@ impl Game for Cascada {
                 self.camera_up.sin() * self.distance,
                 self.camera_angle.cos() * self.camera_up.cos() * self.distance,
             );
+        self.ears = Some((camera.position, camera.target - camera.position));
+
+        self.aimed = on_the_floor(&camera.ray_through(self.cursor));
     }
 
     fn process_keyboard(&mut self, input: KeyboardInput) {
         let held = input.state == KeyboardKeyState::Pressed;
         match input.key {
-            KeyboardKey::Space if held => {
-                self.dominoes = laid();
-                self.solver.forget();
-            }
+            KeyboardKey::Space if held => match self.run.phase() {
+                Phase::Laying => self.run.push(),
+                Phase::Over => self.run = Run::new(),
+                Phase::Falling => (),
+            },
             KeyboardKey::Escape => self.quitting = held,
             _ => (),
         }
     }
 
     fn process_mouse(&mut self, input: MouseInput) {
-        if input.button == MouseButton::Right {
-            self.turning = input.is_pressed();
+        match input.button {
+            MouseButton::Right => self.turning = input.is_pressed(),
+            MouseButton::Left if input.is_pressed() => {
+                if let Some(at) = self.aimed {
+                    self.run.lay(at);
+                }
+            }
+            _ => (),
         }
+    }
+
+    fn cursor_moved(&mut self, position: Vec2) {
+        self.cursor = position;
     }
 
     fn mouse_motion(&mut self, delta: Vec2) {
         if self.turning {
             self.camera_angle += delta.x * 0.005;
-            self.camera_up = (self.camera_up - delta.y * 0.004).clamp(0.08, 1.2);
+            self.camera_up = (self.camera_up - delta.y * 0.004).clamp(0.12, 1.3);
         }
     }
 
     fn mouse_wheel(&mut self, delta: Vec2) {
-        self.distance = (self.distance - delta.y * 0.03).clamp(3.0, 24.0);
+        self.distance = (self.distance - delta.y * 0.05).clamp(4.0, 30.0);
     }
 
     fn is_quitting(&self) -> bool {
