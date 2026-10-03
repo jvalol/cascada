@@ -34,6 +34,27 @@ pub const SUPPLY: usize = 180;
 pub const PUSH: f32 = 0.5 * QUICKER;
 pub const PUSHED_AT: f32 = 0.8;
 
+/// How hard a click pushes, which is harder than the figure's own start.
+///
+/// A start only has to put the first one past its balance and let gravity do
+/// the rest, and the next one along is square on and tips over its own
+/// thickness. A click is a finger, and what it is pushed into may be anything:
+/// a domino standing across the line is hit on its narrow end and has to rock
+/// over a base two and a half times wider.
+///
+/// Measured, a domino pushed into the side of another at three spacings, and
+/// the same shove used to set off a straight run of twenty:
+///
+/// ```text
+/// 2.2 to 4.0   the one across stands, every spacing. the run goes 20/20
+/// 5.0 to 8.0   the one across goes over, every spacing. the run goes 20/20
+/// ```
+///
+/// So a start and a click are not the same shove, which is what this spec said
+/// first. Nothing is lost at the top: spec 0001 measured a straight run
+/// carrying anything up to a hundred.
+pub const SHOVE: f32 = 1.35 * QUICKER;
+
 /// How long everything has to be still before a run is over, and how still.
 ///
 /// Its own measure, which it needed and now barely does.
@@ -78,6 +99,27 @@ pub const GRAVITY: Vec3 = vec3(0.0, -9.81 / UNIT, 0.0);
 /// The square root of one over `UNIT`, which is what every speed here is
 /// multiplied by. Written out because a square root is not a constant.
 pub const QUICKER: f32 = 4.472;
+
+/// How many solver steps a frame is cut into.
+///
+/// Gravity here is twenty times the engine's, and the engine's sleep threshold
+/// is the speed gravity gives a body in a couple of frames. At 196 and a
+/// hundred and twentieth of a second that is 3.27 a second, a third of the
+/// speed the wave itself travels at, so a domino part way over counted as still
+/// and was put to sleep leaning. Smaller steps bring it down in proportion.
+///
+/// Measured, a domino pushed into the side of another at nine angles and
+/// spacings, and then left for a minute after the run said it was over:
+///
+/// ```text
+/// 1 slice    a tile moved 84.9 degrees more
+/// 2          2.6
+/// 4          0.0
+/// ```
+///
+/// It is bought with solver work: 3411 microseconds of a frame on the whole
+/// figure against a budget of 8333, where one slice is 880.
+pub const SLICES: usize = 4;
 pub const GROUND: f32 = 30.0;
 
 /// How much speed a domino has to lose in a step to count as having hit
@@ -124,6 +166,9 @@ pub struct Run {
     /// A domino stood square because it was not continuing anything, waiting
     /// for the next one of its chain to tell it which way to face.
     fresh: Option<usize>,
+    /// How many had gone over when the last push was made, so a push that took
+    /// nothing with it can be told from one that did.
+    fell_before: usize,
 }
 
 impl Default for Run {
@@ -162,6 +207,7 @@ impl Run {
             still: 0.0,
             starts: Vec::new(),
             fresh: None,
+            fell_before: 0,
         }
     }
 
@@ -318,6 +364,7 @@ impl Run {
             return;
         }
 
+        self.fell_before = self.fallen();
         for (first, second) in std::mem::take(&mut self.starts) {
             let from = self.dominoes[first];
             let way = (self.dominoes[second].position - from.position).normalize_or_zero();
@@ -353,7 +400,7 @@ impl Run {
     /// the ray is flattened onto the floor and taken against that axis to pick
     /// the sign.
     ///
-    /// Struck near the top, with the same shove the figure's own start gets.
+    /// Struck near the top, and harder than the figure's own start: see `SHOVE`.
     pub fn shove(&mut self, which: usize, way: Vec3) -> bool {
         let Some(one) = self.dominoes.get(which) else {
             return false;
@@ -368,9 +415,10 @@ impl Run {
 
         let going = thin * thin.dot(flat).signum();
         let at = one.position + Vec3::Y * HALF.y * PUSHED_AT - going * HALF.x;
-        self.dominoes[which].strike(going * PUSH, at);
+        self.dominoes[which].strike(going * SHOVE, at);
 
         if self.phase != Phase::Falling {
+            self.fell_before = self.fallen();
             self.phase = Phase::Falling;
         }
         self.still = 0.0;
@@ -378,6 +426,10 @@ impl Run {
     }
 
     pub fn step(&mut self, dt: f32) {
+        self.step_sliced(dt, SLICES)
+    }
+
+    pub fn step_sliced(&mut self, dt: f32, slices: usize) {
         if self.dominoes.is_empty() {
             return;
         }
@@ -388,8 +440,18 @@ impl Run {
             .map(|one| one.velocity.length())
             .collect();
 
-        self.solver
-            .step(&mut self.dominoes, &self.ground, GRAVITY, dt);
+        // Several smaller steps rather than one of the frame's length. Gravity
+        // here is twenty times the engine's, and the engine's own sleep
+        // threshold is the speed gravity gives a body in a couple of frames: at
+        // 196 and a 120th of a second that is 3.27 a second, a third of the
+        // speed the wave itself travels at. Dominoes were being put to sleep
+        // part way over and freezing at 25 degrees. Smaller steps bring it back
+        // down in proportion.
+        let dt = dt / slices as f32;
+        for _ in 0..slices {
+            self.solver
+                .step(&mut self.dominoes, &self.ground, GRAVITY, dt);
+        }
 
         self.listen(&was);
 
@@ -397,7 +459,16 @@ impl Run {
             if self.moving() == 0 {
                 self.still += dt;
                 if self.still > RESTS_FOR {
-                    self.phase = Phase::Over;
+                    // A shove that took nothing with it is not a run that is
+                    // over, it is a shove that did nothing. A domino pushed into
+                    // the side of another leans on it and stops, which is what a
+                    // real one does, and saying "0 of 137 went over" a fifth of
+                    // a second after the click reads as the game being finished.
+                    self.phase = if self.fallen() > self.fell_before {
+                        Phase::Over
+                    } else {
+                        Phase::Laying
+                    };
                 }
             } else {
                 self.still = 0.0;
@@ -854,6 +925,129 @@ mod tests {
             run.dominoes().last().expect("one was laid").orientation,
             shown.orientation
         );
+    }
+
+    /// Spec 0001: when a run says it is over, it is over.
+    ///
+    /// A domino toppling onto the side of another leans against it and comes to
+    /// rest there, which is a real thing for a tile hit on its narrow end. What
+    /// was not real was it being called finished and then keeling over a minute
+    /// later, which is what a frame too coarse for this gravity did.
+    #[test]
+    fn nothing_moves_after_it_is_over() {
+        let mut worst: f32 = 0.0;
+
+        for degrees in [60.0f32, 90.0, 120.0] {
+            for apart in [0.6f32, 0.7, 0.8] {
+                let angle = degrees.to_radians();
+                let mut run = Run::bare();
+                run.dominoes.push(domino::standing(Vec3::ZERO, Vec3::X));
+                let out = vec3(angle.cos(), 0.0, angle.sin()) * apart;
+                let way = -out.normalize();
+                run.dominoes.push(domino::standing(out, way));
+                run.solver.forget();
+                for _ in 0..360 {
+                    run.step(1.0 / 120.0);
+                }
+
+                let from = run.dominoes[1];
+                let at = from.position + Vec3::Y * HALF.y * PUSHED_AT - way * HALF.x;
+                run.dominoes[1].strike(way * PUSH, at);
+                run.phase = Phase::Falling;
+                until_settled(&mut run, 3600);
+
+                let tilt = |run: &Run, n: usize| {
+                    (run.dominoes()[n].orientation * Vec3::Y)
+                        .dot(Vec3::Y)
+                        .clamp(-1.0, 1.0)
+                        .acos()
+                        .to_degrees()
+                };
+                let was = [tilt(&run, 0), tilt(&run, 1)];
+                for _ in 0..(20 * 120) {
+                    run.step(1.0 / 120.0);
+                }
+
+                worst = worst
+                    .max((tilt(&run, 0) - was[0]).abs())
+                    .max((tilt(&run, 1) - was[1]).abs());
+            }
+        }
+
+        assert!(
+            worst < 1.0,
+            "a tile moved {} degrees after the run said it was over",
+            worst
+        );
+    }
+
+    /// Spec 0003: a shove that takes nothing with it leaves the run where it
+    /// was, rather than ending it with a score of nothing.
+    ///
+    /// Clicking one that is already down is the plainest case of it. The game
+    /// used to call that a finished run a fifth of a second later and print
+    /// "0 of 137 went over".
+    #[test]
+    fn a_shove_that_takes_nothing_is_not_a_run() {
+        let mut run = Run::bare();
+        run.dominoes.push(domino::standing(Vec3::ZERO, Vec3::X));
+        run.solver.forget();
+
+        // put it down first, well clear of anything
+        assert!(run.shove(0, Vec3::X));
+        for _ in 0..600 {
+            run.step(1.0 / 120.0);
+        }
+        assert_eq!(run.phase(), Phase::Over, "the one that fell did not count");
+        assert_eq!(run.fallen(), 1);
+
+        // and now shove the one that is already lying there
+        assert!(run.shove(0, Vec3::X));
+        assert_eq!(run.phase(), Phase::Falling, "it did not start");
+        for _ in 0..900 {
+            run.step(1.0 / 120.0);
+        }
+
+        assert_eq!(run.fallen(), 1, "something else went over");
+        assert_eq!(
+            run.phase(),
+            Phase::Laying,
+            "a shove that took nothing with it ended the run"
+        );
+        assert!(run.lay(vec3(6.0, 0.0, 0.0)), "it would not lay another");
+    }
+
+    /// Spec 0003: and a click takes the one standing across its path with it.
+    ///
+    /// Which is what a click is for. A domino hit on its narrow end has to rock
+    /// over a base two and a half times wider than the one it tips over going
+    /// forwards, and the figure's own start has nowhere near enough for that: a
+    /// clicked tile leant against its neighbour and the wave stopped there.
+    #[test]
+    fn a_click_takes_the_one_across_its_path() {
+        for gap in [0.6f32, 0.7, 0.8] {
+            let mut run = Run::bare();
+            run.dominoes.push(domino::standing(Vec3::ZERO, Vec3::X));
+            run.dominoes
+                .push(domino::standing(vec3(0.0, 0.0, gap), -Vec3::Z));
+            run.solver.forget();
+            for _ in 0..360 {
+                run.step(1.0 / 120.0);
+            }
+
+            assert!(run.shove(1, -Vec3::Z));
+            for _ in 0..1200 {
+                run.step(1.0 / 120.0);
+            }
+
+            assert_eq!(
+                run.fallen(),
+                2,
+                "at {} apart only {} of the two went over",
+                gap,
+                run.fallen()
+            );
+        }
     }
 
     #[test]

@@ -154,6 +154,7 @@ it wrong.
 - A laid run settles and goes to sleep. — `run::tests::a_laid_run_sleeps`
 - Pushing the first one wakes the second before it has touched it. — `run::tests::the_waking_runs_ahead`
 - A run at a spacing that works knocks all of them down. — `run::tests::a_good_spacing_carries`
+- When a run says it is over, nothing moves again. — `run::tests::nothing_moves_after_it_is_over`
 - Two knocks are not the same noise. — `knock::tests::two_knocks_are_different_noises`
 - One too far apart does not. — `run::tests::too_far_apart_falls_short`
 - The count is of those that fell, not those that were laid. — `run::tests::the_count_is_what_fell`
