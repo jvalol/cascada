@@ -28,21 +28,14 @@ pub const ROUND: f32 = 5.2;
 pub const APART: f32 = 0.65;
 
 /// How far to either side of its own line a domino going over reaches.
-///
 /// Measured, a run of twenty splitting into two of fourteen, each branch set
-/// this far off the line of the last domino of the stem:
-///
-/// ```text
-/// 0.26 to 0.40   both branches go over whole, at every radius tried
-/// 0.46           one branch goes, the other is missed
-/// 0.55           neither
-/// ```
-///
-/// Which is the thing this spec first had wrong. It had measured that a domino
-/// knocks over nothing more than fifteen degrees off straight ahead, which is
-/// true of a single domino set off to one side, and read it as a wave not being
-/// able to split at all. A pair standing abreast is a different question and
-/// the answer is different.
+/// this far off the line of the last domino of the stem: ```text 0.26 to 0.40
+/// both branches go over whole, at every radius tried 0.46 one branch goes,
+/// the other is missed 0.55 neither ``` Which is the thing this spec first had
+/// wrong. It had measured that a domino knocks over nothing more than fifteen
+/// degrees off straight ahead, which is true of a single domino set to one
+/// side, and read it as a wave being unable to split. A pair standing abreast
+/// is a different question and the answer is different.
 pub const REACH: f32 = 0.43;
 
 /// How far aside a path stands where it branches off another, and how far
@@ -70,13 +63,11 @@ pub const ALONG: f32 = 0.5;
 /// Outside a domino's reach, with something to spare.
 pub const CLEAR: f32 = 0.7;
 
-/// How far the S reaches at each end.
-///
-/// The top end stands a branch inside the ring, which is how the wave gets off
-/// the ring and into the S. The bottom end stops clear of it, and that
-/// asymmetry is the point: were it a branch at both ends the figure would hold
-/// a loop, and a loop fills from both sides at once and leaves an arch of three
-/// standing where the two sides meet.
+/// How far the S reaches at each end. The top end stands a branch inside the
+/// ring, which is how the wave gets off the ring and into the S. The bottom
+/// end stops clear of it. Were it a branch at both ends the figure would hold
+/// a loop, and a loop fills from both sides at once, leaving an arch of three
+/// standing where they meet.
 pub const TOP: f32 = ROUND - ASIDE;
 pub const BOTTOM: f32 = ROUND - CLEAR;
 
@@ -84,26 +75,16 @@ pub const BOTTOM: f32 = ROUND - CLEAR;
 pub const HIGH: f32 = TOP * 0.5;
 pub const LOW: f32 = BOTTOM * 0.5;
 
-/// How big the two dots are.
-///
-/// How big the two dots are.
-///
-/// Small, which took measuring. The tightest ring a wave gets round at all:
-///
-/// ```text
-/// 0.8, 0.9    nothing goes over
-/// 1.0         7 dominoes, 51 degrees apiece, all 7
-/// 1.2         9 dominoes, 40 degrees apiece, all 9
-/// 1.7        14 dominoes, 26 degrees apiece, all 14
-/// ```
-///
-/// This spec had carried a figure of 36 degrees as the point where a ring jams,
-/// which was measured before the bend had its spacing corrected for the pinch
-/// at the inside of it and is no longer true of anything. Believing it had the
-/// dots at a third of the outer ring, which is nothing like a yin and yang
-/// draws them, and left no room between a dot and the S around it for the spur
-/// that feeds it. A dot of 1.2 clears the S by more than a domino's reach and
-/// is reached across that gap in a single step.
+/// How big the two dots are. How big the two dots are. Small, which took
+/// measuring. The tightest ring a wave gets round at all: ```text 0.8, 0.9
+/// nothing goes over 1.0 7 dominoes, 51 degrees apiece, all 7 1.2 9 dominoes,
+/// 40 degrees apiece, all 9 1.7 14 dominoes, 26 degrees apiece, all 14 ```
+/// This spec had carried 36 degrees as the point where a ring jams. That was
+/// measured before bends had their spacing corrected for the pinch at the
+/// inside, and is no longer true of anything. Believing it had the dots at a
+/// third of the outer ring, nothing like a yin and yang draws them, and left
+/// no room for the spur that feeds them. A dot of 1.2 clears the S by more
+/// than a domino's reach and is reached across that gap in a single step.
 pub const DOT: f32 = 1.2;
 
 /// The step along a straight path, in units of the world rather than of a
@@ -113,14 +94,11 @@ pub fn step() -> f32 {
 }
 
 /// The step along a bend of this radius, which is further than the straight
-/// one.
-///
-/// What decides whether a domino reaches the next is the gap at the inside of
-/// the bend, and that is less than the gap between their middles: a domino is
-/// half a width across, so a bend that turns `t` radians between two of them
-/// closes the inner gap by about `w·t/2`. Stepping by the same amount
+/// one. What decides whether a domino reaches the next is the gap at the
+/// inside of the bend, which is less than the gap between their middles. A
+/// domino is half a width across, so a bend turning `t` radians between two of
+/// them closes the inner gap by about `w·t/2`. Stepping by the same amount
 /// everywhere therefore pinches every curve, and pinches a tight one hardest.
-///
 /// Solving `inner = step·(1 − w / 2r)` for the step that leaves the inner gap
 /// where it was wanted. On the outer ring it is a few percent; on half an S it
 /// is a tenth; on a dot it is more again.
@@ -196,15 +174,12 @@ pub fn pushed_at() -> usize {
     figure().pushed
 }
 
-/// A dot, with the one domino that reaches it.
-///
-/// Not a winding spur, which is what this first tried. A spur that comes in
-/// turning alongside the ring it feeds is a spiral, and the ring then goes the
-/// whole way round and back underneath it: where they join the gap between them
-/// is nothing, by definition, so some stretch of the ring always stands inside
-/// the spur. No size of figure fixes that, because the gap closes to nothing at
-/// the join whatever the scale.
-///
+/// A dot, with the one domino that reaches it. Not a winding spur, which is
+/// what this first tried. A spur that comes in turning alongside the ring it
+/// feeds is a spiral, and the ring then goes the whole way round and back
+/// underneath it. At the join their gap is nothing, by definition, so some
+/// stretch of the ring always stands inside the spur. No size of figure fixes
+/// that, because the gap closes to nothing at the join whatever the scale.
 /// With a dot small enough to sit a clear gap inside the S, none of that is
 /// needed. One domino stands off the S, a branch inside it and half a step
 /// along, turned to face straight in rather than to follow anything. It takes
@@ -314,12 +289,10 @@ mod tests {
     }
 
     /// Every step is one a domino carries over, wherever on the figure it is.
-    ///
     /// Measured from the path itself rather than from what drew it: the turn
     /// between one step and the next, and the gap that leaves at the inside of
-    /// the bend, which is what a domino has to span. Spec 0001 measured what
-    /// carries on the straight at six to nine tenths of a domino's height, and
-    /// a bend eats into that.
+    /// the bend. Spec 0001 measured what carries on the straight at six to
+    /// nine tenths of a domino's height, and a bend eats into that.
     #[test]
     fn every_step_is_one_that_carries() {
         let wide = HALF.z * 2.0;
@@ -414,13 +387,11 @@ mod tests {
     }
 
     /// Nothing stands near anything except where it branches off it, so every
-    /// junction in the figure is one that was drawn on purpose.
-    ///
-    /// Which is why a dot's ring stops where its spur came in rather than
-    /// closing: a ring that goes the whole way round passes back underneath the
-    /// spur that feeds it, and at the join the gap between the two is nothing
-    /// by definition. The spur lies across the opening, so it still reads
-    /// closed.
+    /// junction in the figure is one that was drawn on purpose. Which is why a
+    /// dot's ring stops where its spur came in rather than closing. A ring
+    /// that goes the whole way round passes back underneath the spur that
+    /// feeds it, and at the join their gap is nothing. The spur lies across
+    /// the opening, so it still reads closed.
     #[test]
     fn nothing_stands_near_anything_it_does_not_branch_from() {
         let parts = all_of_it();
