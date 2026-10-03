@@ -9,3 +9,4 @@ not a priority, and it never changes once a spec exists.
 | Spec | Covers |
 | --- | --- |
 | [0001](0001-the-run.md) | Laying dominoes, pushing the first, and counting what fell |
+| [0002](0002-what-is-already-standing.md) | A yin and yang already laid when a run begins |

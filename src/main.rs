@@ -2,6 +2,7 @@
 
 mod domino;
 mod knock;
+mod pattern;
 mod run;
 
 use blitzkit::camera::Camera;
@@ -128,7 +129,7 @@ impl Game for Cascada {
                 ),
                 None => String::from("click to lay more, space to push"),
             },
-            Phase::Falling => String::from("over it goes"),
+            Phase::Falling => String::from("over it goes. space to set it up again"),
             Phase::Over => format!(
                 "{} of {} went over. space to start again",
                 self.run.fallen(),
@@ -139,10 +140,10 @@ impl Game for Cascada {
         text_renderer.reset();
         for (line, text) in vec![
             format!(
-                "{} laid, {} left, {} awake",
+                "{} laid, {} left, {} moving",
                 self.run.dominoes().len(),
                 self.run.left(),
-                self.run.awake()
+                self.run.moving()
             ),
             saying,
             String::from("right-drag turns and tilts, scroll zooms"),
@@ -223,8 +224,10 @@ impl Game for Cascada {
         match input.key {
             KeyboardKey::Space if held => match self.run.phase() {
                 Phase::Laying => self.run.push(),
-                Phase::Over => self.run = Run::new(),
-                Phase::Falling => (),
+                // While it is still going as well, not only once it is over:
+                // the wave takes twenty seconds to get round a figure this
+                // size, and nobody should have to sit through the rest of it.
+                Phase::Over | Phase::Falling => self.run = Run::new(),
             },
             KeyboardKey::Escape => self.quitting = held,
             _ => (),
