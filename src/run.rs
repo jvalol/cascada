@@ -8,7 +8,7 @@ use glam::{vec3, Quat, Vec3};
 /// How many there are to lay, which the pattern spends most of.
 /// How many there are to lay. The figure spends most of them and the rest are
 /// the player's.
-pub const SUPPLY: usize = 130;
+pub const SUPPLY: usize = 180;
 
 /// How hard the first one is pushed, and where on it.
 ///
@@ -516,7 +516,7 @@ mod tests {
         // whole way round, and the S and the dots branch off it and run beside
         // it rather than after it.
         assert!(
-            ticks < 2880,
+            ticks < 3840,
             "it took {} seconds to stop",
             ticks as f32 / 120.0
         );
@@ -636,7 +636,7 @@ mod tests {
         }
 
         // one out on the ring, well away from the figure's own start
-        let which = 24;
+        let which = run.dominoes().len() / 4;
         let (eye, way) = aimed_at(&run, which, vec3(4.0, 3.0, 4.0));
         assert_eq!(run.under(eye, way), Some(which), "the ray missed it");
         assert!(run.shove(which, way));

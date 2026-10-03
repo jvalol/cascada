@@ -68,7 +68,7 @@ impl Cascada {
             camera_angle: 2.5,
             camera_up: 0.55,
             turning: false,
-            distance: 14.0,
+            distance: 18.5,
             quitting: false,
         }
     }

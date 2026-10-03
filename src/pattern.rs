@@ -20,7 +20,7 @@ use std::f32::consts::PI;
 /// dominoes, and the whole figure's bends scale with this, so a small figure is
 /// a tight one. At 3.6 across the S turns 21 degrees between neighbours and
 /// stalls; at 5.2 it turns 14 and goes over whole.
-pub const ROUND: f32 = 5.2;
+pub const ROUND: f32 = 7.0;
 
 /// How far apart they stand, as a fraction of their own height. Spec 0001
 /// measured the range that carries at six to nine tenths, all of them only in
@@ -100,7 +100,7 @@ pub const LOW: f32 = BOTTOM * 0.5;
 /// third of the outer ring, nothing like a yin and yang draws them, and left
 /// no room for the spur that feeds them. A dot of 1.2 clears the S by more
 /// than a domino's reach and is reached across that gap in a single step.
-pub const DOT: f32 = 1.2;
+pub const DOT: f32 = 2.0;
 
 /// The step along a straight path, in units of the world rather than of a
 /// domino.
@@ -167,6 +167,7 @@ pub fn figure_with(winds: f32) -> Figure {
     let up = count_for(HIGH, PI);
     let down = count_for(LOW, PI);
     let mut ess = turning(vec3(0.0, 0.0, HIGH), HIGH, HIGH, PI * 0.5, PI, up);
+    peel(&mut ess);
     ess.extend(turning(vec3(0.0, 0.0, -LOW), LOW, LOW, PI * 0.5, -PI, down));
     ess.push(vec3(0.0, 0.0, -BOTTOM));
 
@@ -244,6 +245,39 @@ fn dot(
     ));
 
     path
+}
+
+/// Pulls the first few of the S in off the ring, so it is clear of it by the
+/// third domino whatever size the figure is.
+///
+/// The S meets the ring tangentially, which is what makes the branch work and
+/// is also what makes it slow to get away: the two run alongside each other and
+/// the gap opens with the curvature. Curvature falls as the figure grows while
+/// a domino stays the same size, so a larger figure holds them close for more
+/// dominoes, and whether the second one clears comes down to where the ring's
+/// own points happen to land. Measured, that was the difference between a
+/// figure of 6.8 going over whole and one of 6.4 or 7.0 not starting at all.
+///
+/// So it is drawn rather than left to the curve. The first stands a branch in,
+/// the second half way to clear, and every one after that is held at clear
+/// until the curve itself has taken the S further in than that.
+fn peel(path: &mut [Vec3]) {
+    for (n, at) in path.iter_mut().enumerate() {
+        let want = match n {
+            0 => ASIDE,
+            1 => (ASIDE + CLEAR) * 0.5,
+            _ => CLEAR,
+        };
+
+        let out = at.length();
+        if out <= ROUND - want {
+            if n > 1 {
+                break;
+            }
+            continue;
+        }
+        *at *= (ROUND - want) / out;
+    }
 }
 
 /// Walks a turn whose radius may be closing, which is what a spur does and
