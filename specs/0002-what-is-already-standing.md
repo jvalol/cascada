@@ -162,17 +162,29 @@ Ninety two dominoes laid out of a hundred and thirty, all of them go over from
 one push, and it takes twenty seconds to come to rest, nearly all of it the wave
 still running.
 
-**A run ends by its own measure of stillness, not by the engine's sleeping.** A
-heap of fifty four fallen dominoes took between sixty and eighty seconds for
-blitzkit to put to sleep, because sleeping there is a property of a whole group
-of touching bodies and one of them twitching resets the timer for all of them.
-Cairn's tower of forty does it in a second and a half, so it is the heap rather
-than the number.
+**A run ends by its own measure of stillness, because the engine's sleeping
+never fires on a figure this size at all.** The figure stops moving at 19.6
+seconds and the run calls it over at 20.5. Forty seconds after the push, with
+nothing moving faster than 0.02 or spinning faster than 0.05, both well inside
+what the engine counts as still, 82 of the 92 are still awake.
+
+Sleeping there is a property of a whole group of touching bodies, and the
+group's clock is written back over each body's own: one of them ticking over the
+threshold for an instant sets every body in the group back to nothing. A fallen
+figure is one connected group of ninety, so something is always stirring
+somewhere and the clock never reaches half a second. Cairn's tower of forty
+sleeps in a second and a half, where the bodies really are still all at once.
+
+That is worth separating from a second thing the engine does on heaps, which is
+not this. A deep pile of fifty four boxes genuinely keeps moving for 58 seconds
+at the engine's eight solver passes, and settles in 7 at sixteen. That one is
+about the solver rather than the bookkeeping, and this figure does not hit it: a
+fallen run is a ribbon one layer deep, not a pile.
 
 **And what is on screen is how many are moving, not how many are awake.** Awake
-is the engine's word for a body it has not finished with, and on a heap that
-number climbs with the wave and then stays up for a minute. A number that never
-comes back down is not the wave.
+is the engine's word for a body it has not finished with, and on a figure this
+size that number climbs with the wave and then never comes back down. A number
+that never comes back down is not the wave.
 
 ## Out of scope
 

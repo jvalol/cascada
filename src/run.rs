@@ -31,11 +31,18 @@ pub const PUSHED_AT: f32 = 0.8;
 
 /// How long everything has to be still before a run is over, and how still.
 ///
-/// Its own measure rather than the engine's sleeping, which is a property of a
-/// whole group of touching bodies: one of them twitching resets the timer for
-/// all of them, and a heap of fifty four fallen dominoes took between sixty and
-/// eighty seconds to go quiet enough all at once. Cairn's tower of forty does it
-/// in a second and a half, so this is about the heap rather than the number.
+/// Its own measure because the engine's sleeping never fires on a figure this
+/// size at all. Forty seconds after the push, with nothing moving faster than
+/// 0.02 or spinning faster than 0.05, both well inside what it counts as still,
+/// 82 of the 92 are still awake.
+///
+/// Sleeping there is a property of a whole group of touching bodies, and the
+/// group's clock is written back over each body's own: one of them ticking over
+/// the threshold for an instant sets every body in the group back to nothing. A
+/// fallen figure is one connected group of ninety, so something is always
+/// stirring somewhere and the clock never reaches half a second. Cairn's tower
+/// of forty sleeps in a second and a half, where the bodies really are still
+/// all at once.
 pub const RESTS_FOR: f32 = 0.8;
 pub const RESTS_UNDER: f32 = 0.1;
 
@@ -386,10 +393,8 @@ mod tests {
         assert!((gap - 1.5).abs() < 1e-4, "it said {}", gap);
     }
 
-    /// Spec 0002: a new run is the pattern, standing, with some of the supply
-    /// left over.
-    /// Spec 0002: the figure comes to rest and the run ends, rather than the
-    /// minute the engine's own sleeping takes on a heap this size.
+    /// Spec 0002: the figure comes to rest and the run ends, which the
+    /// engine's own sleeping never does on a figure this size.
     #[test]
     fn the_figure_comes_to_rest() {
         let mut run = Run::new();
