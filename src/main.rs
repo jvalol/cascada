@@ -3,6 +3,7 @@
 mod domino;
 mod knock;
 mod pattern;
+mod pips;
 mod run;
 
 use blitzkit::camera::Camera;
@@ -35,6 +36,8 @@ fn on_the_floor(ray: &Ray) -> Option<Vec3> {
 
 struct Cascada {
     domino_mesh: Option<MeshId>,
+    /// One per tile of a double six set, so a domino can wear its own face.
+    tiles: Vec<blitzkit::renderer::scene::TextureId>,
     floor_mesh: Option<MeshId>,
     run: Run,
     cursor: Vec2,
@@ -58,6 +61,7 @@ impl Cascada {
     fn new() -> Self {
         Self {
             domino_mesh: None,
+            tiles: Vec::new(),
             floor_mesh: None,
             run: Run::new(),
             cursor: Vec2::ZERO,
@@ -76,7 +80,11 @@ impl Cascada {
 
 impl Game for Cascada {
     fn load(&mut self, renderer: &mut Renderer) {
-        self.domino_mesh = Some(renderer.add_mesh(&MeshData::cube()));
+        self.domino_mesh = Some(renderer.add_mesh(&pips::tile_mesh()));
+        self.tiles = pips::tiles()
+            .iter()
+            .map(|tile| renderer.add_texture(tile))
+            .collect();
         self.floor_mesh = Some(renderer.add_mesh(&MeshData::plane()));
     }
 
@@ -175,19 +183,23 @@ impl Game for Cascada {
             vec4(0.16, 0.17, 0.20, 1.0),
         );
 
-        for body in self.run.dominoes().iter() {
+        for (which, body) in self.run.dominoes().iter().enumerate() {
             let Shape::Block { half } = body.shape else {
                 continue;
             };
 
-            scene.push_material(
-                domino_mesh,
-                &Transform::at(body.position)
-                    .with_rotation(body.orientation)
-                    .with_scale(half * 2.0),
-                vec4(0.92, 0.90, 0.86, 1.0),
-                64.0,
-            );
+            let placed = Transform::at(body.position)
+                .with_rotation(body.orientation)
+                .with_scale(half * 2.0);
+
+            match self.tiles.get(pips::worn_by(which)) {
+                Some(tile) => {
+                    scene.push_textured(domino_mesh, *tile, &placed, vec4(1.0, 1.0, 1.0, 1.0), 48.0)
+                }
+                None => {
+                    scene.push_material(domino_mesh, &placed, vec4(0.92, 0.90, 0.86, 1.0), 64.0)
+                }
+            }
         }
 
         // where the next one would go, so a run can be aimed before it is laid
