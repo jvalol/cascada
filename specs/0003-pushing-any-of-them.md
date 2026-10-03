@@ -36,13 +36,13 @@ running again, and what falls afterwards counts with the rest.
 **Space still sets the figure off**, unchanged, so the figure keeps a start that
 takes no aim.
 
-**And a click out on its own starts a line of its own.** Spec 0001 stood the very
-first domino square and turned it to face the second when that arrived, because
-the first has nothing to face. That was enough while the floor began empty.
-Since spec 0002 lays a figure first, the player's first click turns to face
-whatever the figure happened to end on, which is a direction nothing meant, and
-being able to push it is what made that visible: the domino goes over across the
-line the player was drawing rather than along it.
+**And a click out on its own starts a line of its own.** Spec 0001 stood the
+very first domino square and turned it to face the second when that arrived,
+because the first has nothing to face. That was enough while the floor began
+empty. Since spec 0002 lays a figure first, the player's first click turns to
+face whatever the figure ended on. Being able to push it is what made that
+visible: the domino goes over across the line the player was drawing rather
+than along it.
 
 So the rule is generalised from "the run is empty" to "this one is not
 continuing anything". A click further from the last than any spacing carries is

@@ -23,11 +23,11 @@ const BURST_FADE: f32 = 230.0;
 /// The resonances the noise is heard through, in hertz, with how tight each is
 /// and how loud.
 ///
-/// Low for the floor taking the weight, middle for the body of the domino, high
-/// for the edge of it. Higher than cairn's, because a domino is small and light
-/// and sounds like it. Tight enough to colour the noise and loose enough not to
-/// ring: a resonance held any closer to one is a note, and a note is what the
-/// three attempts before this all turned into.
+/// Low for the floor taking the weight, middle for the body of the domino,
+/// high for the edge of it. Higher than cairn's, because a domino is small and
+/// light and sounds like it. Tight enough to colour the noise and loose enough
+/// not to ring. A resonance held any closer to one is a note, and a note is
+/// what the three attempts before this turned into.
 const RINGS: [f32; 3] = [340.0, 1100.0, 2400.0];
 const TIGHTNESS: [f32; 3] = [0.90, 0.85, 0.80];
 const LOUDNESS: [f32; 3] = [1.0, 0.75, 0.40];
@@ -44,9 +44,9 @@ const GAIN: f32 = 0.105;
 
 /// How far ahead of itself the sound may get, in seconds.
 ///
-/// The engine plays queued sounds one after another rather than over each other,
-/// so a collapse that hands it eighty knocks is eighty knocks long: six seconds
-/// of clattering after everything has come to rest. Nothing is queued while
+/// The engine plays queued sounds one after another rather than over each
+/// other, so a collapse that hands it eighty knocks is eighty knocks long. Six
+/// seconds of clattering after everything has stopped. Nothing is queued while
 /// there is already more than this waiting, which bounds how far behind the
 /// sound can fall to about a tenth of a second.
 pub const LEAD: f32 = 0.11;
@@ -166,11 +166,11 @@ mod tests {
     /// How much the sound repeats itself, at whatever interval it repeats best.
     /// One is a pure tone and nothing is noise.
     ///
-    /// Each lag is normalised by the energy of the two stretches being compared,
-    /// which matters more than it sounds: without that, any two exponentially
-    /// decaying things correlate well at every lag because the envelope does it
-    /// for them, and the first version of this measure gave a clack 0.85 and
-    /// would have given a drum the same.
+    /// Each lag is normalised by the energy of the two stretches being
+    /// compared, which matters more than it sounds. Without it, any two
+    /// exponentially decaying things correlate well at every lag, because the
+    /// envelope does it for them. The first version of this measure gave a
+    /// clack 0.85.
     fn periodic(of: &[f32]) -> f32 {
         // from 80 hz up to 3 khz, which is every pitch anything here could have
         (RATE as usize / 3000..RATE as usize / 80)
@@ -248,11 +248,11 @@ mod tests {
     /// The one this is for. A block landing on a table has no pitch, and the
     /// three attempts before this one all did.
     ///
-    /// Measured this way a pure sine comes out at 1.00 and plain noise at 0.05.
-    /// This sits at about 0.52, and most of what is left is the low resonance
-    /// simply being a lowpass: the measure answers to smoothness as well as to
-    /// pitch, since neighbouring samples of anything dull are alike. It catches
-    /// a note and it does not pretend to be a spectrum.
+    /// Measured this way a pure sine comes out at 1.00 and plain noise at
+    /// 0.05. This sits at about 0.52, and most of what is left is the low
+    /// resonance being a lowpass. The measure answers to smoothness as well as
+    /// pitch, since neighbouring samples of anything dull are alike. It
+    /// catches a note and it does not pretend to be a spectrum.
     #[test]
     fn it_is_not_a_note() {
         let clack = periodic(&samples(1.0, 1.0));

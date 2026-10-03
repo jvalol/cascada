@@ -42,8 +42,8 @@ branch set 0.26 to 0.40 off the stem's line   both go over whole, at every
 ```
 
 So a domino reaches about 0.43 either side of its own line. But a branch is not
-a road forking, because one path carrying straight on while the other leaves at
-an angle cannot work: to be reached the second would have to stand closer than
+a road forking. One path carrying straight on while the other leaves at an
+angle cannot work: to be reached the second would have to stand closer than
 that reach, and two dominoes that close are inside each other. What works is
 that the branching domino stands **nearer the stem than the stem's own next one
 does**:
@@ -73,13 +73,13 @@ Each front props the other up and the last few stand as a little arch. That is
 what real dominoes do, and no push got rid of it: all twenty seven ways of
 starting the three paths, forwards, backwards or not at all, left exactly three.
 
-**A dot is small, and it is reached across a gap rather than wound into.** A spur
-that comes in turning alongside the ring it feeds is a spiral, and the ring then
-goes the whole way round and back underneath it. At the join the gap between the
-two is nothing, by definition, so some stretch of the ring always stands inside
-the spur, and no size of figure fixes that because the gap closes to nothing at
-the join whatever the scale. So a dot's ring stops where its spur came in rather
-than closing. The spur lies across the opening and it still reads closed.
+**A dot is small, and it is reached across a gap rather than wound into.** A
+spur that comes in turning alongside the ring it feeds is a spiral, and the
+ring then goes the whole way round and back underneath it. At the join their
+gap is nothing, by definition, so some stretch of the ring always stands inside
+the spur. No size of figure fixes that. So a dot's ring stops where its spur
+came in rather than closing. The spur lies across the opening and it still
+reads closed.
 
 That is only affordable because a dot can be small, which took measuring. This
 spec had carried a figure of 36 degrees between neighbours as where a ring jams.
@@ -93,9 +93,8 @@ inside of it, and it is no longer true of anything:
 1.7        14 dominoes, 26 degrees apiece, all 14
 ```
 
-Believing the old number had the dots at a third of the outer ring, nothing like
-what a yin and yang draws, and left no room between a dot and the S around it
-for the spur that feeds it.
+Believing the old number had the dots at a third of the outer ring, nothing
+like a yin and yang draws them, and left no room for the spur that feeds them.
 
 **What it looks like from the one push.** The ring carries the time, because it
 is one wave going the whole way round, and everything else branches off it and
@@ -166,13 +165,12 @@ still running.
 does.** The figure stops moving at 19.6 seconds and the run calls it over at
 20.5.
 
-Sleeping in the engine is a property of a whole group of touching bodies:
-nothing sleeps while anything it touches is moving, so a fallen figure is one
-connected group of ninety and the group's clock restarts whenever any one of them
-stirs over the threshold. At blitzkit's old eight solver passes it never slept at
-all. Long after the figure had stopped, 75 of the 92 were still crossing that
-threshold, so the clock never reached half a second and 82 of them were awake at
-forty seconds with nothing moving faster than 0.02.
+Sleeping in the engine is a property of a whole group of touching bodies.
+Nothing sleeps while anything it touches is moving, so a fallen figure is one
+connected group of ninety, and the clock restarts whenever any of them stirs.
+At blitzkit's old eight solver passes it never slept at all. Long after the
+figure had stopped, 75 of the 92 were still crossing that threshold. At forty
+seconds, 82 were awake with nothing moving faster than 0.02.
 
 That turned out to be the solver and not the bookkeeping, and it was the same
 fault that left a pile of fifty four boxes moving for 58 seconds. Blitzkit's

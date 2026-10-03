@@ -33,12 +33,12 @@ pub const PUSHED_AT: f32 = 0.8;
 ///
 /// Its own measure, which it needed and now barely does.
 ///
-/// Sleeping in the engine is a property of a whole group of touching bodies:
-/// nothing sleeps while anything it touches is moving, so a fallen figure is one
-/// connected group of ninety and the group's clock restarts whenever any one of
-/// them stirs over the threshold. At blitzkit's old eight solver passes 75 of
-/// the 92 went on stirring long after the figure had stopped, the clock never
-/// reached half a second, and it never slept at all.
+/// Sleeping in the engine is a property of a whole group of touching bodies.
+/// Nothing sleeps while anything it touches is moving, so a fallen figure is
+/// one connected group of ninety, and the clock restarts whenever any of them
+/// stirs. At blitzkit's old eight solver passes 75 of the 92 went on stirring
+/// long after the figure had stopped, the clock never reached half a second,
+/// and it never slept at all.
 ///
 /// That was the solver rather than the bookkeeping, and blitzkit's passes are
 /// thirty two now. None of them stir, and it sleeps at 20.2 seconds, against the
@@ -526,9 +526,9 @@ mod tests {
     /// Spec 0002: nothing laid stands inside anything else.
     ///
     /// Not a claim about the pattern's points, which hug each other where the
-    /// S meets the ring: two circles tangent at a place run alongside each
-    /// other near it, and that is the shape rather than a mistake. The laying
-    /// is what resolves it, by leaving out whatever will not fit.
+    /// S meets the ring. Two circles tangent at a place run alongside each
+    /// other near it, and that is the shape. The laying is what resolves it,
+    /// by leaving out whatever will not fit.
     #[test]
     fn nothing_laid_overlaps() {
         let run = Run::new();
@@ -829,10 +829,9 @@ mod tests {
     /// face the second when it arrives.
     ///
     /// At a spacing that is a line. This used to put them two whole heights
-    /// apart, which spec 0001 had already measured as further than anything
-    /// carries, and spec 0003 made that distinction matter: two clicks that far
-    /// apart are no longer one line being drawn, so the first has nothing to
-    /// turn towards.
+    /// apart, which spec 0001 had measured as further than anything carries.
+    /// Spec 0003 made that matter: two clicks that far apart are no longer one
+    /// line, so the first has nothing to turn towards.
     #[test]
     fn they_stand_across_the_line() {
         let mut run = Run::bare();

@@ -123,11 +123,11 @@ keep here more plainly than it does in cairn.
 
 ## The numbers were measured, not reasoned
 
-The three that mattered were all the physics', not mine, and all three are above.
-The one the spec did not think to ask is that a domino stands with its thin way
-along the run and its wide way across it: turned the other way it topples
-sideways out of its own line, and the scaffolding this repo was born with had it
-wrong.
+The three that mattered were all the physics', not mine, and all three are
+above. The one the spec did not think to ask is that a domino stands with its
+thin way along the run and its wide way across. Turned the other way it topples
+sideways out of its own line, and the scaffolding this repo was born with had
+it wrong.
 
 ## Acceptance criteria
 
