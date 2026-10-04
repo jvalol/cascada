@@ -23,14 +23,14 @@ pub const SUPPLY: usize = 180;
 /// 200            two
 /// ```
 ///
-/// Spec 0001 wondered whether a shove hard enough throws the first one over the
-/// top of the second rather than into it, and this said yes: past about four
-/// times what was needed, one went over and nothing else moved. That was the
-/// engine rather than the dominoes. A sleeping body was a wall to the solver
-/// for the step it was run into, so the first one sailed over a second that
-/// could not be moved. Blitzkit wakes what a moving body is touching before the
-/// passes now, and a hard shove carries like any other until 200, which is
-/// ninety times what is needed.
+/// Spec 0001 wondered whether a shove hard enough throws the first one over
+/// the top of the second rather than into it. This said yes: past four times
+/// what was needed, one went over and nothing else moved. That was the engine
+/// rather than the dominoes. A sleeping body was a wall to the solver for the
+/// step it was run into, so the first one sailed over a second that could not
+/// be moved. Blitzkit wakes what a moving body is touching before the passes
+/// now, and a hard shove carries like any other until 200, which is ninety
+/// times what is needed.
 pub const PUSH: f32 = 0.5 * QUICKER;
 pub const PUSHED_AT: f32 = 0.8;
 
@@ -38,9 +38,9 @@ pub const PUSHED_AT: f32 = 0.8;
 ///
 /// A start only has to put the first one past its balance and let gravity do
 /// the rest, and the next one along is square on and tips over its own
-/// thickness. A click is a finger, and what it is pushed into may be anything:
-/// a domino standing across the line is hit on its narrow end and has to rock
-/// over a base two and a half times wider.
+/// thickness. A click is a finger, and what it is pushed into may be anything.
+/// A domino standing across the line is hit on its narrow end and rocks over a
+/// base two and a half times wider.
 ///
 /// Measured, a domino pushed into the side of another at three spacings, and
 /// the same shove used to set off a straight run of twenty:
@@ -77,9 +77,8 @@ pub const RESTS_UNDER: f32 = 0.1 * QUICKER;
 /// How big one of this world's units is, in metres.
 ///
 /// A domino here is one unit tall. At the engine's own 9.81 that makes it a
-/// metre tall, and it topples like a metre of concrete: measured, a wave went
-/// down a straight run at two and a half dominoes a second, which is the slow
-/// motion the whole thing read as.
+/// metre tall, and it topples like a metre of concrete. Measured, a wave went
+/// down a straight run at two and a half dominoes a second.
 ///
 /// A real domino is about five centimetres, so gravity is what a five
 /// centimetre unit would feel. Time then goes as the square root of that, so
@@ -104,9 +103,9 @@ pub const QUICKER: f32 = 4.472;
 ///
 /// Gravity here is twenty times the engine's, and the engine's sleep threshold
 /// is the speed gravity gives a body in a couple of frames. At 196 and a
-/// hundred and twentieth of a second that is 3.27 a second, a third of the
-/// speed the wave itself travels at, so a domino part way over counted as still
-/// and was put to sleep leaning. Smaller steps bring it down in proportion.
+/// hundred and twentieth of a second that is 3.27, a third of the speed the
+/// wave travels at, so a domino part way over counted as still and was slept
+/// leaning. Smaller steps bring it down in proportion.
 ///
 /// Measured, a domino pushed into the side of another at nine angles and
 /// spacings, and then left for a minute after the run said it was over:
@@ -281,9 +280,9 @@ impl Run {
     /// whether it went down.
     ///
     /// The direction is the player's, per spec 0005. Spec 0001 worked it out
-    /// from the domino before and spec 0003 added a rule for a click out on its
-    /// own, and between them a domino's heading was never the player's and one
-    /// already on the floor could be turned by the next one arriving.
+    /// from the domino before and spec 0003 added a rule for a click out on
+    /// its own. Between them a heading was never the player's, and one already
+    /// on the floor could be turned by the next arriving.
     ///
     /// At any point in a run, also per spec 0005. Spec 0003 made pushing
     /// something that can be done whenever, and laying had been left where spec
@@ -392,12 +391,11 @@ impl Run {
             .collect();
 
         // Several smaller steps rather than one of the frame's length. Gravity
-        // here is twenty times the engine's, and the engine's own sleep
-        // threshold is the speed gravity gives a body in a couple of frames: at
-        // 196 and a 120th of a second that is 3.27 a second, a third of the
-        // speed the wave itself travels at. Dominoes were being put to sleep
-        // part way over and freezing at 25 degrees. Smaller steps bring it back
-        // down in proportion.
+        // here is twenty times the engine's, and its sleep threshold is the
+        // speed gravity gives a body in a couple of frames. At 196 and a 120th
+        // of a second that is 3.27, a third of the speed the wave travels at.
+        // Dominoes were being put to sleep part way over and freezing at 25
+        // degrees. Smaller steps bring it back down in proportion.
         let dt = dt / slices as f32;
         for _ in 0..slices {
             self.solver
@@ -411,10 +409,11 @@ impl Run {
                 self.still += dt;
                 if self.still > RESTS_FOR {
                     // A shove that took nothing with it is not a run that is
-                    // over, it is a shove that did nothing. A domino pushed into
-                    // the side of another leans on it and stops, which is what a
-                    // real one does, and saying "0 of 137 went over" a fifth of
-                    // a second after the click reads as the game being finished.
+                    // over, it is a shove that did nothing. A domino pushed
+                    // into the side of another leans on it and stops, which is
+                    // what a real one does. Saying "0 of 137 went over" a
+                    // fifth of a second after the click reads as the game
+                    // being finished.
                     self.phase = if self.fallen() > self.fell_before {
                         Phase::Over
                     } else {
@@ -428,8 +427,8 @@ impl Run {
     }
 
     /// Writes down what hit something. An impact is a loss of speed, and only
-    /// the loudest few of a step are kept: a run going over is dozens of these
-    /// at once and all of them together is one bang.
+    /// the loudest few of a step are kept. A run going over is dozens at once,
+    /// and all of them together is one bang.
     fn listen(&mut self, was: &[f32]) {
         let mut heard: Vec<Knock> = self
             .dominoes
@@ -983,9 +982,9 @@ mod tests {
 
     /// Spec 0003: and a click takes the one standing across its path with it.
     ///
-    /// Which is what a click is for. A domino hit on its narrow end has to rock
-    /// over a base two and a half times wider than the one it tips over going
-    /// forwards, and the figure's own start has nowhere near enough for that: a
+    /// Which is what a click is for. A domino hit on its narrow end has to
+    /// rock over a base two and a half times wider than the one it tips over
+    /// going forwards, and the figure's own start has nowhere near enough. A
     /// clicked tile leant against its neighbour and the wave stopped there.
     #[test]
     fn a_click_takes_the_one_across_its_path() {
