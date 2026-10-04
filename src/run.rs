@@ -796,6 +796,53 @@ mod tests {
     }
 
     /// Spec 0003: and what goes over afterwards counts with the rest.
+    /// Spec 0003: which way the figure is pushed decides how much of it goes,
+    /// and the lesser answer is allowed to happen.
+    ///
+    /// A branch is a domino half a step ahead of the stem and inside it,
+    /// turned to topple along the branch. Struck from behind it goes; struck
+    /// from the front it falls backwards, away from the branch. So a wave
+    /// running the ring the designed way takes the S and the dots with it and
+    /// a wave running it the other way takes the ring alone.
+    ///
+    /// Held here so that a change which quietly makes a click run the figure's
+    /// way, or which breaks the forward case, is caught rather than noticed in
+    /// a screenshot.
+    #[test]
+    fn which_way_the_figure_is_pushed_decides_how_much_goes() {
+        let ring = crate::pattern::all_of_it()[0].len();
+
+        let run_it = |against: bool| {
+            let mut run = Run::new();
+            let thin = run.dominoes()[0].orientation * Vec3::X;
+            run.shove(0, if against { -thin } else { thin });
+
+            let dt = 1.0 / 60.0;
+            let mut at = 0.0f32;
+            while run.phase() != Phase::Over && at < 30.0 {
+                run.step(dt);
+                at += dt;
+            }
+            (run.fallen(), run.dominoes().len())
+        };
+
+        let (with, all) = run_it(false);
+        assert_eq!(
+            with, all,
+            "pushed its own way, {} of {} went over",
+            with, all
+        );
+
+        let (against, _) = run_it(true);
+        assert!(
+            against > ring / 2 && against < all,
+            "pushed against it, {} of {} went over, with a ring of {}",
+            against,
+            all,
+            ring
+        );
+    }
+
     #[test]
     fn a_later_push_adds_to_the_count() {
         let mut run = Run::new();

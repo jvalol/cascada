@@ -71,6 +71,30 @@ second arrived, because being able to push one made it visible that the player's
 first click faced whatever the figure happened to end on. That was still the
 game choosing. The player aims it now.
 
+**A push against the figure's own direction carries less of it, and that is
+allowed to happen.** Measured on the ring: shoved the way the figure runs, all
+136 go over. Shoved the other way, 69 do, which is the ring and nothing else.
+Three places round the ring, same answer.
+
+Spec 0002 built the figure as a tree so the wave only ever spreads, and a branch
+in that tree is a domino standing half a step ahead of the stem and inside it,
+turned to topple along the branch. A wave arriving the designed way knocks it
+from behind and it goes. A wave arriving the other way knocks it from the front
+and it falls backwards, away from the branch it was placed to enter. Nothing put
+at the junction changes that, because nothing changes which way a domino falls
+when it is struck.
+
+Making every click run the figure's way would fix it, since every domino is
+stood up facing the way it is meant to fall and `Run` could remember that. It is
+not done, and the reason is the point of this spec. A domino tips from whatever
+angle you hit it and the physics decides the rest. A click that quietly becomes
+a different push than the one you aimed is the game moving your hand, and a
+figure that does not fully topple is an honest outcome rather than a fault.
+
+Nothing on screen says which way a domino will go, and nothing can: the pips are
+on both wide faces and the two are identical, so a standing domino looks the same
+from either side. That is a cost of this, written down rather than designed away.
+
 ## Acceptance criteria
 
 - Clicking a standing domino knocks it over. — `run::tests::a_click_pushes_what_it_hits`
@@ -81,6 +105,7 @@ game choosing. The player aims it now.
 - A run that has come to rest can be set going again. — `run::tests::a_finished_run_can_be_poked`
 - A shove that takes nothing with it leaves the run laying. — `run::tests::a_shove_that_takes_nothing_is_not_a_run`
 - What falls after a second push counts with the rest. — `run::tests::a_later_push_adds_to_the_count`
+- Pushing the figure its own way carries all of it, and against it carries the ring alone. — `run::tests::which_way_the_figure_is_pushed_decides_how_much_goes`
 
 ### Verified by hand
 
