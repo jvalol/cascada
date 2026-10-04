@@ -23,6 +23,25 @@ use run::{Phase, Run};
 
 const FLOOR: f32 = 30.0;
 
+/// Whether this run is only here to be photographed, for `refresh-screenshots`
+/// in the project above.
+///
+/// A game's opening frame rarely shows what the game is about, and cascada's
+/// never does: it opens on a figure standing still, which is every run before
+/// anything has happened. The picture wants the wave partway through, and that
+/// is a state nobody can reach by pressing a key at the right moment.
+fn staged() -> bool {
+    std::env::args().any(|arg| arg == "--screenshot")
+}
+
+/// How far into a run the picture is taken, in seconds.
+///
+/// Measured rather than guessed, and the first guess was nine seconds, by
+/// which time it has been over for five and a half. The whole run is 3.5
+/// seconds: at two, 62 of the 136 are down and 14 are still moving, so the
+/// near half reads as fallen and the far half as still to come.
+const PHOTOGENIC: f32 = 2.0;
+
 /// How far an arrow turns the ghost. A twenty fourth of the way round, so a
 /// quarter turn is six presses and the figure's own bends are reachable.
 const TURN: f32 = std::f32::consts::TAU / 24.0;
@@ -68,6 +87,13 @@ struct Cascada {
     ears: Option<(Vec3, Vec3)>,
     /// How much sound is already queued and not yet played, in seconds.
     waiting: f32,
+    /// Whether this run is held still to be photographed.
+    ///
+    /// Staging the state is not enough on its own. The run goes on stepping
+    /// every frame, so the two seconds set up here ran to the end while the
+    /// camera was still being pointed, and the picture came out of a finished
+    /// run twice over.
+    held: bool,
     camera_angle: f32,
     camera_up: f32,
     turning: bool,
@@ -77,11 +103,24 @@ struct Cascada {
 
 impl Cascada {
     fn new() -> Self {
+        let mut run = Run::new();
+
+        if staged() {
+            // the physics is the game's own and needs no window, so the wave
+            // is run forward here rather than waited for after one opens
+            let dt = 1.0 / 60.0;
+            run.push();
+            for _ in 0..(PHOTOGENIC / dt) as usize {
+                run.step(dt);
+            }
+        }
+
         Self {
             domino_mesh: None,
             tiles: Vec::new(),
             floor_mesh: None,
-            run: Run::new(),
+            held: staged(),
+            run,
             cursor: Vec2::ZERO,
             aimed: None,
             pointing: None,
@@ -130,7 +169,9 @@ impl Game for Cascada {
         text_renderer: &mut TextRenderer,
         sound_system: &SoundSystem,
     ) {
-        self.run.step(dt);
+        if !self.held {
+            self.run.step(dt);
+        }
         self.waiting = (self.waiting - dt).max(0.0);
 
         if let Some((at, facing)) = self.ears {
@@ -269,9 +310,8 @@ impl Game for Cascada {
         match input.key {
             KeyboardKey::Space if held => match self.run.phase() {
                 Phase::Laying => self.run.push(),
-                // While it is still going as well, not only once it is over:
-                // the wave takes twenty seconds to get round a figure this
-                // size, and nobody should have to sit through the rest of it.
+                // While it is still going as well, not only once it is over,
+                // so a run nobody wants to watch out does not have to be.
                 Phase::Over | Phase::Falling => self.run = Run::new(),
             },
             KeyboardKey::Left if held => self.aim += TURN,

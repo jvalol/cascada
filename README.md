@@ -3,6 +3,8 @@
 Stand dominoes up on a floor, one at a time, wherever you like. Then push the
 first one. The number at the end is how many fell.
 
+![A yin and yang drawn in pale dominoes on a dark grey floor, the S down the middle and one of its two dots already flat, the far side of the outer ring and the other dot still standing](media/screenshot.png)
+
 ```
 cargo run --release
 ```

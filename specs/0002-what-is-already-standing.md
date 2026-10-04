@@ -157,13 +157,17 @@ one-off at launch.
 
 ## What it cost, measured
 
-Ninety two dominoes laid out of a hundred and thirty, all of them go over from
-one push, and it takes twenty seconds to come to rest, nearly all of it the wave
-still running.
+A hundred and thirty six dominoes laid out of a hundred and eighty, all of them
+go over from one push, and it takes three and a half seconds to come to rest,
+nearly all of it the wave still running.
 
 **A run ends by its own measure of stillness, which it needed and now barely
-does.** The figure stops moving at 19.6 seconds and the run calls it over at
-20.5.
+does.** The figure stops moving at 3.5 seconds and the run calls it over at 4.2.
+
+Those read 92 dominoes, 19.6 and 20.5 until 2026-10-04. They were measured
+before the figure became a tree of 136, before a unit became five centimetres,
+and before the frame was cut into four solver steps. Three changes, none of
+which came back to this page.
 
 Sleeping in the engine is a property of a whole group of touching bodies.
 Nothing sleeps while anything it touches is moving, so a fallen figure is one

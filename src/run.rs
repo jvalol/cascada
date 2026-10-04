@@ -550,12 +550,17 @@ mod tests {
             ticks += 1;
         }
         assert_eq!(run.phase(), Phase::Over, "it never came to rest");
-        // Measured at twenty seconds, nearly all of it the wave still
-        // running. The ring is what takes the time: it is one wave going the
-        // whole way round, and the S and the dots branch off it and run beside
-        // it rather than after it.
+        // Measured at 3.5 seconds of wave and 4.2 to being called over. The
+        // ring is what takes the time: it is one wave going the whole way
+        // round, and the S and the dots branch off it and run beside it rather
+        // than after it.
+        //
+        // It read twenty seconds until 2026-10-04, measured before gravity
+        // became a unit of five centimetres and the frame was cut into four
+        // solver steps. Both made the wave faster and neither touched this
+        // number.
         assert!(
-            ticks < 3840,
+            ticks < 960,
             "it took {} seconds to stop",
             ticks as f32 / 120.0
         );
