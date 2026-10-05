@@ -12,6 +12,7 @@ use blitzkit::geometry::Geometry;
 use blitzkit::keyboard::{KeyboardInput, KeyboardKey, KeyboardKeyState};
 use blitzkit::mesh::{MeshData, Transform};
 use blitzkit::mouse::{MouseButton, MouseInput};
+use blitzkit::notice;
 use blitzkit::physics::Shape;
 use blitzkit::renderer::render_text::{RenderText, TextRenderer};
 use blitzkit::renderer::scene::{MeshId, Scene};
@@ -165,7 +166,7 @@ impl Game for Cascada {
     fn update(
         &mut self,
         dt: f32,
-        _geometry: &mut Geometry,
+        geometry: &mut Geometry,
         text_renderer: &mut TextRenderer,
         sound_system: &SoundSystem,
     ) {
@@ -217,7 +218,7 @@ impl Game for Cascada {
         };
 
         text_renderer.reset();
-        for (line, text) in vec![
+        let lines: Vec<RenderText> = vec![
             format!(
                 "{} laid, {} left, {} moving",
                 self.run.dominoes().len(),
@@ -229,13 +230,25 @@ impl Game for Cascada {
         ]
         .into_iter()
         .enumerate()
-        {
-            text_renderer.push_render_text(RenderText {
-                position: vec2(20.0, 20.0 + line as f32 * 24.0),
-                text,
-                size: 14.0,
-                ..Default::default()
-            });
+        .map(|(line, text)| RenderText {
+            position: vec2(20.0, 20.0 + line as f32 * 24.0),
+            text,
+            size: 14.0,
+            ..Default::default()
+        })
+        .collect();
+
+        // the readout goes on a panel, so it reads over the scene rather than
+        // into it. See blitzkit's spec 0038.
+        geometry.reset();
+        if let Some(frame) = notice::framing_all(&lines) {
+            for quad in frame.iter() {
+                geometry.push_quad(quad);
+            }
+        }
+
+        for line in lines {
+            text_renderer.push_render_text(line);
         }
     }
 
