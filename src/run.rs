@@ -5,7 +5,6 @@ use blitzkit::collision::{obbs_meet, Aabb, Obb};
 use blitzkit::physics::{Body, Shape, Solver};
 use glam::{vec3, Quat, Vec3};
 
-/// How many there are to lay, which the pattern spends most of.
 /// How many there are to lay. The figure spends most of them and the rest are
 /// the player's.
 pub const SUPPLY: usize = 180;
