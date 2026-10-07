@@ -10,3 +10,22 @@ license = "MIT OR Apache-2.0"
 blitzkit = "0.12"
 glam = "0.33"
 rodio = { version = "0.22", default-features = false }
+
+# Everything cascada depends on is optimised even in a debug build, and cascada
+# itself is not.
+#
+# A debug `cargo run` drew at 20 frames a second, which is the engine's own
+# delta clamp of 50 ms a frame and so is a floor rather than a reading: the
+# median, the ninetieth and the worst frame were all exactly 50.0. Debug Rust is
+# roughly seventy times slower in a tight numeric loop, and a falling row of
+# blocks is nothing but one. This holds it at 8.3 ms, which is what the release
+# build draws.
+#
+# Here and not in the folder this is usually checked out into, because a game
+# that runs at 20 for anybody who clones it has a problem wherever it is built,
+# and fixing it only in that folder is how it stays hidden.
+#
+# cascada's own code is left unoptimised, so it still stops where you ask it to
+# and still panics on an overflow rather than wrapping quietly.
+[profile.dev.package."*"]
+opt-level = 3
