@@ -103,10 +103,13 @@ struct Cascada {
 }
 
 impl Cascada {
-    fn new() -> Self {
+    /// `staged` rather than a call to `staged()`, so that a picture test
+    /// can ask for the photographed state without putting `--screenshot`
+    /// in its own arguments. `main` passes what the arguments say.
+    fn new(staged: bool) -> Self {
         let mut run = Run::new();
 
-        if staged() {
+        if staged {
             // the physics is the game's own and needs no window, so the wave
             // is run forward here rather than waited for after one opens
             let dt = 1.0 / 60.0;
@@ -120,7 +123,7 @@ impl Cascada {
             domino_mesh: None,
             tiles: Vec::new(),
             floor_mesh: None,
-            held: staged(),
+            held: staged,
             run,
             cursor: Vec2::ZERO,
             aimed: None,
@@ -380,5 +383,58 @@ impl Game for Cascada {
 }
 
 fn main() {
-    start("cascada", Box::new(Cascada::new()));
+    start("cascada", Box::new(Cascada::new(staged())));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// How big the picture is.
+    ///
+    /// **Twice the engine's 320 by 240, which was too small for this
+    /// game.** A run is a hundred and eighty dominoes seen from across
+    /// the floor, so at that size each one is about five pixels and its
+    /// face is under one. The whole of what spec 0004 put on them could
+    /// go and the comparison would not move, which is the fault the
+    /// engine's spec 0062 was written about in the first place. At this
+    /// size the pips are there to be lost.
+    const WIDE: u32 = 640;
+    const TALL: u32 = 480;
+
+    /// A run going over, held against the picture of one.
+    ///
+    /// **The staging was already here.** `--screenshot` runs the wave
+    /// forward `PHOTOGENIC` seconds and holds it, which is the frame
+    /// `refresh-screenshots` photographs for the readme, so this is a test
+    /// of the picture that is already on show rather than of a pose
+    /// invented for it.
+    ///
+    /// The clock is at nought, so nothing moves between the staging and
+    /// the shutter. Sound is asked for and never plays: the engine opens
+    /// no device in a test and says so rather than failing.
+    ///
+    /// Nothing at all on a machine with no adapter. The engine's spec 0076
+    /// writes which picture went unchecked and hands back that it skipped.
+    #[test]
+    fn a_run_going_over_looks_right() {
+        let reference = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/pictures/a-run-going-over.png");
+
+        blitzkit::picture::drawn_looks_right(&reference, (WIDE, TALL), |renderer| {
+            let mut game = Cascada::new(true);
+            let mut geometry = Geometry::new();
+            let mut text = TextRenderer::new();
+            let sound = SoundSystem::new();
+            let mut scene = Scene::new();
+            let mut camera = Camera::new();
+
+            game.load(renderer);
+            game.initialize(&mut geometry, &mut text, &sound, (WIDE as f32, TALL as f32));
+            game.update(0.0, &mut geometry, &mut text, &sound);
+            game.draw(&mut scene, &mut camera);
+
+            (scene, camera)
+        });
+    }
 }
