@@ -390,17 +390,19 @@ fn main() {
 mod tests {
     use super::*;
 
-    /// How big the picture is.
+    /// How big the picture is, which the engine says and this game has
+    /// no reason to argue with.
     ///
-    /// **Twice the engine's 320 by 240, which was too small for this
-    /// game.** A run is a hundred and eighty dominoes seen from across
-    /// the floor, so at that size each one is about five pixels and its
-    /// face is under one. The whole of what spec 0004 put on them could
-    /// go and the comparison would not move, which is the fault the
-    /// engine's spec 0062 was written about in the first place. At this
-    /// size the pips are there to be lost.
-    const WIDE: u32 = 640;
-    const TALL: u32 = 480;
+    /// **It was given twice this and the reason was wrong.** The
+    /// argument was that a domino is about five pixels at the engine's
+    /// size and its face under one, so spec 0004's pips could come off
+    /// without the comparison moving. Measured instead of assumed, by
+    /// taking the faces off and asking how far the picture went: 7.7% at
+    /// the engine's size and 7.3% at twice it, against a tolerance of
+    /// 0.2%. A face that is gone takes its domino's whole shading with
+    /// it, which is not a detail at any size.
+    const WIDE: u32 = blitzkit::picture::SIZE.0;
+    const TALL: u32 = blitzkit::picture::SIZE.1;
 
     /// A run going over, held against the picture of one.
     ///
