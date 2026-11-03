@@ -7,7 +7,7 @@ rust-version = "1.87"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-blitzkit = "0.14"
+blitzkit = "0.15"
 glam = "0.33"
 rodio = { version = "0.22", default-features = false }
 
