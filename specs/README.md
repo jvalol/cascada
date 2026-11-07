@@ -14,7 +14,3 @@ not a priority, and it never changes once a spec exists.
 | [0004](0004-spots-on-them.md) | Two halves, a bar, and a count of spots at each end |
 | [0005](0005-laying-it-your-way.md) | Aiming a domino, keeping it where it was put, and laying at any point |
 | [0006](0006-a-picture-of-a-run-going-over.md) | Holding the staged run against a picture of one, at a size the pips can be lost at |
-
----
-
-I asked AI to draft this for me. I've edited it. Any surviving AI smells are my oversight.
